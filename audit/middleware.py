@@ -124,13 +124,8 @@ class RequestContextMiddleware:
             method = ctx.get('request_method', '').upper()
 
             # Filter exempted paths
-            exempt_paths = ['/health', '/metrics', '/favicon.ico']
+            exempt_paths = ['/health', '/metrics', '/static', '/media', '/cia', '/favicon.ico']
             if any(path.startswith(ep) for ep in exempt_paths):
-                return
-
-            # Filter out GET requests to admin paths
-            is_admin_request = path.startswith('/admin/')
-            if is_admin_request and not method in ('POST', 'PUT', 'DELETE'):
                 return
 
             started_at = ctx.get('started_at', timezone.now())
