@@ -26,7 +26,7 @@ class Command(BaseCommand):
         retention_days = options['days'] or 2555  # Default 7 years
         cutoff_date = timezone.now() - timedelta(days=retention_days)
 
-        old_logs = AuditLogService().filter(timestamp__lt=cutoff_date)
+        old_logs = AuditLogService().filter(date_created__lt=cutoff_date)
         count = old_logs.count()
 
         if options['dry_run']:
