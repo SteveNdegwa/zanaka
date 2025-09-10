@@ -37,6 +37,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'audit',
+    'authentication',
+    'base',
+    'notifications',
+    'otps',
+    'school',
+    'users',
 ]
 
 MIDDLEWARE = [
@@ -47,6 +54,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'audit.middleware.RequestContextMiddleware',
 ]
 
 ROOT_URLCONF = 'zanaka.urls'
@@ -68,6 +76,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'zanaka.wsgi.application'
+AUTH_USER_MODEL = "users.User"
 
 
 # Database
