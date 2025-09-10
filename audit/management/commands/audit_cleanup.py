@@ -23,9 +23,15 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        retention_days = options['days'] or 2555  # Default 7 years
-        cutoff_date = timezone.now() - timedelta(days=retention_days)
+        if options['days'] is not None:
+            if options['days'] < 0:
+                self.stderr.write(self.style.ERROR('Days must be a non-negative integer'))
+                return
+            retention_days = options['days']
+        else:
+            retention_days = 2555
 
+        cutoff_date = timezone.now() - timedelta(days=retention_days)
         old_logs = AuditLogService().filter(date_created__lt=cutoff_date)
         count = old_logs.count()
 
