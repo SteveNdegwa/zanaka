@@ -1,4 +1,3 @@
-from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.core.serializers.json import DjangoJSONEncoder
@@ -6,8 +5,6 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from base.models import BaseModel
-
-User = get_user_model()
 
 
 class RequestLog(BaseModel):
@@ -74,7 +71,7 @@ class AuditSeverity(models.TextChoices):
 
 class AuditLog(BaseModel):
     request_id = models.UUIDField(null=True, blank=True, verbose_name=_("Request ID"))
-    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, verbose_name=_("User"))
+    user = models.ForeignKey('users.User', null=True, blank=True, on_delete=models.SET_NULL, verbose_name=_("User"))
     ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name=_("IP Address"))
     user_agent = models.TextField(null=True, blank=True, verbose_name=_("User Agent"))
     request_method = models.CharField(max_length=10, null=True, blank=True, verbose_name=_("Request Method"))

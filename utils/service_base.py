@@ -51,15 +51,30 @@ class ServiceBase(Generic[T]):
         """
         return self.manager.model
 
-    def get(self, *args, **kwargs) -> Optional[T]:
+    def get(
+            self,
+            *args,
+            select_related: Union[List[str], None] = None,
+            prefetch_related: Union[List[str], None] = None,
+            **kwargs
+    ) -> Optional[T]:
         """
-        Get a single record from the database.
+        Get a single record from the database with optional select_related and prefetch_related.
 
+        :param select_related: Related fields to select in the query.
+        :param prefetch_related: Related fields to prefetch in the query.
         :return: Model instance or None if not found.
         :raises MultipleObjectsReturned: If multiple objects are returned.
         """
         try:
-            return self._queryset.get(*args, **kwargs)
+            qs = self._queryset
+            if select_related:
+                qs = qs.select_related(*select_related)
+            if prefetch_related:
+                qs = qs.prefetch_related(*prefetch_related)
+
+            return qs.get(*args, **kwargs)
+
         except ObjectDoesNotExist:
             logger.debug(
                 '%s.get() - Object not found with args=%s, kwargs=%s',
@@ -79,14 +94,28 @@ class ServiceBase(Generic[T]):
             )
             return None
 
-    def filter(self, *args, **kwargs) -> Optional[QuerySet]:
+    def filter(
+            self,
+            *args,
+            select_related: Union[List[str], None] = None,
+            prefetch_related: Union[List[str], None] = None,
+            **kwargs
+    ) -> Optional[QuerySet[T]]:
         """
-        Return a queryset of filtered records.
+        Return a queryset of filtered records with optional select_related and prefetch_related.
 
+        :param select_related: Related fields to select in the query.
+        :param prefetch_related: Related fields to prefetch in the query.
         :return: QuerySet or None if error occurs.
         """
         try:
-            return self._queryset.filter(*args, **kwargs)
+            qs = self._queryset
+            if select_related:
+                qs = qs.select_related(*select_related)
+            if prefetch_related:
+                qs = qs.prefetch_related(*prefetch_related)
+
+            return qs.filter(*args, **kwargs)
         except Exception as e:
             logger.exception(
                 '%s.filter() - Filter error: %s',
@@ -94,7 +123,7 @@ class ServiceBase(Generic[T]):
             )
             return None
 
-    def all(self) -> Optional[QuerySet]:
+    def all(self) -> Optional[QuerySet[T]]:
         """
         Return all records.
 
@@ -263,6 +292,10 @@ class ServiceBase(Generic[T]):
     ) -> tuple[Optional[T], bool]:
         """
         Get an object, or create one if it doesn't exist.
+
+        :param defaults: Fields to set if creating a new object.
+        :param kwargs: Fields to identify the object.
+        :return: Tuple of (object, created), where created is a boolean indicating whether a new object was created.
         """
         try:
             if kwargs:
@@ -295,6 +328,10 @@ class ServiceBase(Generic[T]):
     ) -> tuple[Optional[T], bool]:
         """
         Update an object with the given kwargs, creating a new one if necessary.
+
+        :param defaults: Fields to update if the object exists.
+        :param kwargs: Fields to identify the object.
+        :return: Tuple of (object, created), where created is a boolean indicating whether a new object was created.
         """
         try:
             if kwargs:
@@ -333,6 +370,11 @@ class ServiceBase(Generic[T]):
     ) -> List[T]:
         """
         Create multiple records in a single database query.
+
+        :param objects: List of dictionaries with field values for each record.
+        :param batch_size: Number of objects to create in each batch.
+        :param ignore_conflicts: Whether to ignore conflicts.
+        :return: List of created model instances.
         """
         try:
             instances = []
@@ -358,6 +400,11 @@ class ServiceBase(Generic[T]):
     def bulk_update(self, objs: List[T], fields: List[str], batch_size: Optional[int] = None) -> int:
         """
         Update multiple objects in a single database query.
+
+        :param objs: List of model instances to update.
+        :param fields: List of fields to update.
+        :param batch_size: Number of objects to update in each batch.
+        :return: Number of rows updated.
         """
         try:
             valid_fields = self._get_valid_field_names()
@@ -394,6 +441,9 @@ class ServiceBase(Generic[T]):
     def _validate_fields(self, field_data: Dict[str, Any]) -> None:
         """
         Validate field data against model fields.
+
+        :param field_data: Dictionary of field names and values to validate.
+        :raises ValidationError: If invalid fields are found.
         """
         valid_fields = self._get_valid_field_names()
         invalid_fields = set(field_data.keys()) - valid_fields
@@ -406,6 +456,9 @@ class ServiceBase(Generic[T]):
     def _filter_valid_fields(self, field_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Filter out invalid fields from the provided data.
+
+        :param field_data: Dictionary of field names and values.
+        :return: Dictionary containing only valid fields.
         """
         valid_fields = self._get_valid_field_names()
         return {k: v for k, v in field_data.items() if k in valid_fields}

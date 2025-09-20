@@ -45,11 +45,11 @@ class CustomUserManager(BaseUserManager):
             else:
                 raise ValueError(
                     'You have multiple authentication backends configured and '
-                    'therefore must provide the `backend` argument.'
+                    'therefore must provide the `services` argument.'
                 )
         elif not isinstance(backend, str):
             raise TypeError(
-                'backend must be a dotted import path string (got %r).' % backend
+                'services must be a dotted import path string (got %r).' % backend
             )
         else:
             backend = auth.load_backend(backend)

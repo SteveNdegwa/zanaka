@@ -1,71 +1,55 @@
 import logging
 
 from audit.context import RequestContext
-from authentication.backend.authentication_management_service import AuthenticationManagementService
+from audit.decorators import set_activity_name
+from authentication.models import Identity
+from authentication.services.auth_service import AuthService
+from base.views import BaseView
+from users.services.user_service import UserService
 from utils.response_provider import ResponseProvider
 
 logger = logging.getLogger(__name__)
 
+class AuthView(BaseView):
+    def post(self, request, action, *args, **kwargs):
+        if action == "login":
+            return self.login(request, *args, **kwargs)
+        elif action == "logout":
+            return self.logout(request, *args, **kwargs)
+        else:
+            return ResponseProvider.bad_request(message="Invalid action specified")
 
-class AuthenticationAPIHandler:
-    @staticmethod
-    def login(request):
-        """
-        Authenticates a user based on provided credentials and returns an active identity token.
+    @set_activity_name("User login")
+    def login(self, request, *args, **kwargs):
+        reg_number = self.data.get('reg_number', '')
+        password = self.data.get('password', '')
+        device_token = self.data.get('device_token', '')
+        source_ip = RequestContext.ip_address
 
-        :param request: HTTP request object.
-        :type request: HttpRequest
-        :return: JSON response containing token, status, user ID, expiration time, and optional user profile.
-        :rtype: JsonResponse
-        :raises Exception: If authentication fails or an error occurs during login.
-        """
-        try:
-            data = RequestContext.data
-            credential = data.get('credential', '')
-            password = data.get('password', '')
-            device_token = data.get('device_token', '')
-            source_ip = RequestContext.ip_address
+        identity = AuthService.login(
+            reg_number=reg_number,
+            password=password,
+            source_ip=source_ip,
+            device_token=device_token,
+        )
 
-            identity = AuthenticationManagementService().login(
-                credential=credential,
-                password=password,
-                source_ip=source_ip,
-                device_token=device_token
-            )
+        user_profile = None
+        if identity.status == Identity.Status.ACTIVE:
+            user_profile = UserService.get_user_profile(identity.user.id)
 
-            user_profile = None
-            # if identity.status == Identity.Status.ACTIVE:
-            #     user_profile = UserManagementService().get_user(user_id=identity.user.id)
+        return ResponseProvider.success(
+            message="Login successful",
+            data={
+                "token": str(identity.token),
+                "status": identity.status,
+                "user_id": str(identity.user.id),
+                "expires_at": str(identity.expires_at),
+                "profile": user_profile,
+            }
+        )
 
-            return ResponseProvider.success(
-                message='Login successful',
-                data={
-                    'token': str(identity.token),
-                    'status': identity.status,
-                    'user_id': str(identity.user.id),
-                    'expires_at': str(identity.expires_at),
-                    'profile': user_profile,
-                }
-            )
-        except Exception as ex:
-            logger.exception('AuthenticationAPIHandler - login exception: %s', ex)
-            return ResponseProvider.error(message='An error occurred during login', error=str(ex))
-
-    @staticmethod
-    def logout(request):
-        """
-        Logs out a user from a specific system by invalidating their active identity.
-
-        :param request: HTTP request object.
-        :type request: HttpRequest
-        :return: JSON response indicating whether the logout was successful.
-        :rtype: JsonResponse
-        :raises Exception: If logout fails or the identity cannot be terminated.
-        """
-        try:
-            user_id = RequestContext.data.get('user_id', '')
-            AuthenticationManagementService().logout(user_id=user_id)
-            return ResponseProvider.success(message='Logout successful')
-        except Exception as ex:
-            logger.exception('AuthenticationAPIHandler - logout exception: %s', ex)
-            return ResponseProvider.error(message='An error occurred during logout', error=str(ex))
+    @set_activity_name("User logout")
+    def logout(self, request, *args, **kwargs):
+        user_id = self.data.get("user_id", "")
+        AuthService.logout(user_id)
+        return ResponseProvider.success(message="Logout successful")

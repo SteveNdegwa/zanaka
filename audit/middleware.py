@@ -1,14 +1,16 @@
 import uuid
 import json
+import logging
 from django.utils import timezone
 from django.contrib.auth.models import AnonymousUser
 from django.urls import resolve
 
 from audit.context import RequestContext
-from audit.services import RequestLogService
+from audit.models import RequestLog
 from authentication.models import Identity
-from authentication.services import IdentityService
 from utils.common import get_client_ip
+
+logger = logging.getLogger(__name__)
 
 
 class RequestContextMiddleware:
@@ -54,7 +56,7 @@ class RequestContextMiddleware:
 
         is_authenticated = False
         if token:
-            identity = IdentityService().get(
+            identity = Identity.objects.get(
                 token=token,
                 expires_at__gte=timezone.now(),
                 status=Identity.Status.ACTIVE,
@@ -80,11 +82,20 @@ class RequestContextMiddleware:
 
     @staticmethod
     def _process_view(request, view_func, view_args, view_kwargs):
+        view_name = getattr(view_func, '__name__', 'unknown')
         RequestContext.update(
-            view_name=getattr(view_func, '__name__', 'unknown'),
+            view_name=view_name,
             view_args=view_args,
             view_kwargs=view_kwargs,
         )
+
+        if not RequestContext.activity_name:
+            method = getattr(request, 'method', 'UNKNOWN').upper()
+            if view_func.__name__ in ['get', 'post', 'put', 'delete', 'patch']:
+                resource = view_func.__qualname__.split('.')[0].replace('View', '')
+                RequestContext.update(activity_name=f"{method} {resource}")
+            else:
+                RequestContext.update(activity_name=f"{method} {view_name}")
 
     def _process_exception(self, request, exception):
         RequestContext.update(
@@ -132,7 +143,7 @@ class RequestContextMiddleware:
             ended_at = timezone.now()
             time_taken = (ended_at - started_at).total_seconds()
 
-            RequestLogService().create(
+            RequestLog.objects.create(
                 request_id=ctx.get('request_id'),
                 user=ctx.get('user'),
                 token=ctx.get('token'),
@@ -156,5 +167,5 @@ class RequestContextMiddleware:
                 response_data=ctx.get('response_data'),
             )
         except Exception as e:
-            print(f"Failed to save RequestLog: {e}")
+            logger.exception(f"Failed to save RequestLog: {e}")
 

@@ -122,6 +122,32 @@ class UserAdmin(admin.ModelAdmin):
     ordering = ('-date_created',)
 
 
+@admin.register(StudentGuardian)
+class StudentGuardianAdmin(admin.ModelAdmin):
+    fieldsets = (
+        ('Student ↔ Guardian Link', {
+            'fields': ('student', 'guardian', 'relationship', 'is_primary', 'can_receive_reports', 'is_active')
+        }),
+        ('Audit', {
+            'fields': ('id', 'date_created', 'date_modified', 'synced')
+        }),
+    )
+    list_display = ('student', 'guardian', 'relationship', 'is_primary', 'is_active', 'date_created', 'date_modified')
+    list_filter = (
+        'relationship', 'is_primary', 'can_receive_reports', 'is_active',
+        'date_created', 'date_modified', 'synced'
+    )
+    search_fields = (
+        'student__user__id', 'student__user__reg_number', 'student__user__username',
+        'student__user__first_name', 'student__user__last_name', 'student__user__other_name',
+        'guardian__id', 'guardian__username', 'guardian__reg_number', 'guardian__first_name',
+        'guardian__last_name', 'guardian__other_name'
+    )
+    raw_id_fields = ('student', 'guardian')
+    readonly_fields = ('id', 'date_created', 'date_modified', 'synced')
+    ordering = ('-date_created',)
+
+
 @admin.register(StudentProfile)
 class StudentProfileAdmin(admin.ModelAdmin):
     fieldsets = (
@@ -221,29 +247,6 @@ class AdminProfileAdmin(admin.ModelAdmin):
         'id', 'user__id', 'user__username', 'user__reg_number', 'user__first_name', 'user__last_name',
         'user__other_name', 'id_number', 'phone_number', 'email'
     )
-    readonly_fields = ('id', 'date_created', 'date_modified', 'synced')
-    ordering = ('-date_created',)
-
-
-@admin.register(StudentGuardian)
-class StudentGuardianAdmin(admin.ModelAdmin):
-    fieldsets = (
-        ('Student ↔ Guardian Link', {
-            'fields': ('student', 'guardian', 'relationship', 'is_primary')
-        }),
-        ('Audit', {
-            'fields': ('id', 'date_created', 'date_modified', 'synced')
-        }),
-    )
-    list_display = ('student', 'guardian', 'relationship', 'is_primary', 'date_created', 'date_modified')
-    list_filter = ('relationship', 'is_primary', 'date_created', 'date_modified', 'synced')
-    search_fields = (
-        'student__user__id', 'student__user__reg_number', 'student__user__username',
-        'student__user__first_name', 'student__user__last_name', 'student__user__other_name',
-        'guardian__id', 'guardian__username', 'guardian__reg_number', 'guardian__first_name',
-        'guardian__last_name', 'guardian__other_name'
-    )
-    raw_id_fields = ('student', 'guardian')
     readonly_fields = ('id', 'date_created', 'date_modified', 'synced')
     ordering = ('-date_created',)
 

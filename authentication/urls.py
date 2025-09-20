@@ -1,10 +1,7 @@
 from django.urls import path
 
-from authentication.views import AuthenticationAPIHandler
-
-handler = AuthenticationAPIHandler()
+from authentication.views import AuthView
 
 urlpatterns = [
-    path('login/', handler.login, name='auth-login'),
-    path('logout/', handler.logout, name='auth-logout'),
+    path('<str:action>/', AuthView.as_view(), name='auth'),
 ]

@@ -4,6 +4,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from audit.mixins import AuditableMixin
+from base.managers import PrimaryDBManager
 
 
 class BaseModel(AuditableMixin, models.Model):
@@ -23,6 +24,7 @@ class BaseModel(AuditableMixin, models.Model):
         help_text=_("Indicates whether this record has been synchronized with the replica system.")
     )
 
+    # objects = PrimaryDBManager()
     objects = models.Manager()
 
     class Meta(object):

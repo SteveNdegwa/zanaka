@@ -7,15 +7,13 @@ import requests
 from django.conf import settings
 
 from notifications.models import Notification
-from notifications.services import NotificationService
-from users.models import User
-from users.services import DeviceService
+from users.models import User, Device, Role
 from zanaka.celery import app
 
 logger = logging.getLogger(__name__)
 
 
-class NotificationManagementService:
+class NotificationService:
     """
     Manages creation, deduplication, and dispatch of notifications for a given user.
     """
@@ -84,11 +82,11 @@ class NotificationManagementService:
         """
         window = self._get_deduplication_window(frequency)
         if window is None:
-            return NotificationService().filter(
+            return Notification.objects.filter(
                 user=self.user,
                 unique_key=unique_key
             ).exists()
-        return NotificationService().filter(
+        return Notification.objects.filter(
             user=self.user,
             unique_key=unique_key,
             date_created__gte=datetime.now() - window
@@ -97,8 +95,8 @@ class NotificationManagementService:
     def send_notification(
         self,
         context: dict,
-        delivery_method: str = Notification.DeliveryMethods.PUSH,
-        template: str = 'push_default',
+        delivery_method: str = Notification.DeliveryMethods.EMAIL,
+        template: str = 'email_default',
         notification_key: Optional[str] = None,
         frequency: str = Notification.NotificationFrequency.ONCE,
         recipients: Optional[list[str]] = None
@@ -142,22 +140,40 @@ class NotificationManagementService:
             if self._is_duplicate(unique_key=unique_key, frequency=frequency):
                 return None
 
-        # If a user is specified, use their contact details for recipients
         if self.user:
-            if delivery_method == Notification.DeliveryMethods.SMS:
-                recipients = [self.user.phone_number]
-            elif delivery_method == Notification.DeliveryMethods.EMAIL:
-                recipients = [self.user.email]
+            if self.user.role.name == Role.RoleName.STUDENT:
+                student_profile = getattr(self.user, 'student_profile', None)
+                guardian_profile = None
+
+                if student_profile:
+                    primary_guardian_link = (
+                        student_profile.guardians
+                        .filter(is_primary=True, is_active=True)
+                        .select_related('guardian__guardian_profile')
+                        .first()
+                    )
+                    if primary_guardian_link:
+                        guardian_profile = getattr(primary_guardian_link.guardian, 'guardian_profile', None)
+
+                profile = guardian_profile
             else:
-                device = DeviceService().filter(user=self.user, is_active=True).first()
+                profile_attr = f'{self.user.role.name.lower()}_profile'
+                profile = getattr(self.user, profile_attr, None)
+
+            if delivery_method == Notification.DeliveryMethods.SMS:
+                recipients = [profile.phone_number]
+            elif delivery_method == Notification.DeliveryMethods.EMAIL:
+                recipients = [profile.email]
+            else:
+                device = Device.objects.filter(user=self.user, is_active=True).first()
                 if device:
                     recipients = [device.token]
 
         if not recipients:
-            logger.error('NotificationManagementService - send_notification exception: No valid recipients found')
+            logger.error('NotificationService - send_notification exception: No valid recipients found')
             return None
 
-        notification = NotificationService().create(
+        notification = Notification.objects.create(
             user=self.user,
             delivery_method=delivery_method,
             template=template,
@@ -167,12 +183,9 @@ class NotificationManagementService:
             recipients=recipients
         )
 
-        if notification is None:
-            raise Exception('Error creating notification')
-
         notification_data = {
             'unique_identifier': str(notification.id),
-            'system': 'mchangohub',
+            'system': settings.SYSTEM_NAME,
             'recipients': recipients,
             'notification_type': notification.delivery_method,
             'template': template,

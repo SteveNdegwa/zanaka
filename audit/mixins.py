@@ -9,10 +9,9 @@ class AuditableMixin:
     """
 
     def _is_tracking_enabled(self, action: str) -> bool:
-        from audit.services import AuditConfigurationService
-        from audit.models import AuditEventType
+        from audit.models import AuditConfiguration, AuditEventType
 
-        config = AuditConfigurationService().get(
+        config = AuditConfiguration.objects.get(
             app_label=self._meta.app_label,
             model_name=self._meta.model_name,
             is_enabled=True,
@@ -30,12 +29,10 @@ class AuditableMixin:
         return False
 
     def save(self, *args, **kwargs):
-        from audit.models import AuditEventType, AuditSeverity
-        from audit.services import AuditLogService
+        from audit.models import AuditEventType, AuditSeverity, AuditLog
 
         is_new = self.pk is None
 
-        # Track original values for updates
         original_values = {}
         if not is_new:
             try:
@@ -53,7 +50,6 @@ class AuditableMixin:
 
         context = RequestContext.get()
 
-        # Detect changes
         changes = {}
         if not is_new and original_values:
             for field in self._meta.fields:
@@ -67,8 +63,7 @@ class AuditableMixin:
                         'new_value': new_value,
                     }
 
-        # Create AuditLog
-        AuditLogService().create(
+        AuditLog.objects.create(
             request_id=context.get('request_id'),
             user=context.get('user'),
             ip_address=context.get('ip_address'),
@@ -87,8 +82,7 @@ class AuditableMixin:
         return result
 
     def delete(self, *args, **kwargs):
-        from audit.models import AuditEventType, AuditSeverity
-        from audit.services import AuditLogService
+        from audit.models import AuditEventType, AuditSeverity, AuditLog
 
         if not self._is_tracking_enabled(AuditEventType.DELETE):
             return super().delete(*args, **kwargs)
@@ -102,7 +96,7 @@ class AuditableMixin:
             if field.name not in self._excluded_audit_fields()
         }
 
-        AuditLogService().create(
+        AuditLog.objects.create(
             request_id=context.get('request_id'),
             user=context.get('user'),
             ip_address=context.get('ip_address'),
@@ -122,9 +116,9 @@ class AuditableMixin:
         return super().delete(*args, **kwargs)
 
     def _excluded_audit_fields(self):
-        from audit.services import AuditConfigurationService
+        from audit.models import AuditConfiguration
 
-        config = AuditConfigurationService().get(
+        config = AuditConfiguration.objects.get(
             app_label=self._meta.app_label,
             model_name=self._meta.model_name,
             is_enabled=True,

@@ -130,3 +130,9 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+SYSTEM_NAME = 'Zanaka'
+
+# Notification settings
+QUEUE_NOTIFICATIONS = False
+NOTIFY_BASE_URL = 'https://notify.rentwaveafrica.co.ke'

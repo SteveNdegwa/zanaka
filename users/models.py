@@ -16,6 +16,19 @@ logger = logging.getLogger(__name__)
 
 
 class Role(GenericBaseModel):
+    class RoleName(models.TextChoices):
+        STUDENT = "student", _("Student")
+        GUARDIAN = "guardian", _("Guardian")
+        TEACHER = "teacher", _("Teacher")
+        CLERK = "clerk", _("Clerk")
+        ADMIN = "admin", _("Admin")
+
+    name = models.CharField(
+        max_length=50,
+        unique=True,
+        choices=RoleName.choices,
+        verbose_name=_("Name"),
+    )
     can_login = models.BooleanField(default=False, verbose_name=_('Can login'))
     is_active = models.BooleanField(default=True, verbose_name=_('Is active'))
 
@@ -29,31 +42,6 @@ class Role(GenericBaseModel):
 
     def __str__(self):
         return self.name
-
-    @classmethod
-    def student_role(cls):
-        role, _ = cls.objects.get_or_create(name='student')
-        return role
-
-    @classmethod
-    def guardian_role(cls):
-        role, _ = cls.objects.get_or_create(name='guardian')
-        return role
-
-    @classmethod
-    def teacher_role(cls):
-        role, _ = cls.objects.get_or_create(name='teacher')
-        return role
-
-    @classmethod
-    def clerk_role(cls):
-        role, _ = cls.objects.get_or_create(name='clerk')
-        return role
-
-    @classmethod
-    def admin_role(cls):
-        role, _ = cls.objects.get_or_create(name='admin')
-        return role
 
 
 class Permission(GenericBaseModel):
@@ -311,7 +299,7 @@ class StudentGuardian(BaseModel):
         OTHER = 'other', _('Other')
 
     student = models.ForeignKey(
-        'StudentProfile',
+        User,
         on_delete=models.CASCADE,
         related_name='student_guardians',
         verbose_name=_('Student'),
@@ -335,6 +323,12 @@ class StudentGuardian(BaseModel):
         verbose_name=_('Primary guardian'),
         help_text=_("Indicates whether this is the student's primary guardian."),
     )
+    can_receive_reports = models.BooleanField(
+        default=True,
+        verbose_name=_('Can receive reports'),
+        help_text=_("Authorized to receive student notifications and communications."),
+    )
+    is_active = models.BooleanField(default=True, verbose_name=_('Is active'))
 
     class Meta:
         unique_together = ('student', 'guardian')
@@ -344,6 +338,13 @@ class StudentGuardian(BaseModel):
 
     def __str__(self):
         return f'{self.guardian} - {self.relationship} of {self.student}'
+
+    def save(self, *args, **kwargs):
+        if self.is_primary:
+            self.receive_notifications = True
+
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class StudentProfile(BaseModel):
@@ -373,12 +374,6 @@ class StudentProfile(BaseModel):
         related_name='students',
         verbose_name=_('Classroom')
     )
-    guardians = models.ManyToManyField(
-        User,
-        through=StudentGuardian,
-        related_name='guarded_students',
-        verbose_name=_('Guardians'),
-    )
     medical_info = models.TextField(blank=True, null=True, verbose_name=_('Medical information'))
     additional_info = models.TextField(blank=True, null=True, verbose_name=_('Additional information'))
 
@@ -391,10 +386,18 @@ class StudentProfile(BaseModel):
         return f'Profile for {self.user}'
 
     def clean(self):
-        if self.user.role != Role.student_role():
+        if self.user.role.name != Role.RoleName.STUDENT:
             raise ValidationError(_("User must have role 'student' for StudentProfile."))
         if self.classroom and self.user.branch != self.classroom.branch:
             raise ValidationError(_("Classroom must belong to the user's branch."))
+
+    @property
+    def guardians(self):
+        relationships = StudentGuardian.objects.filter(
+            student=self.user,
+            is_active=True
+        ).order_by('-is_primary', 'date_created')
+        return [rel.guardian for rel in relationships]
 
 
 class GuardianProfile(BaseModel):
@@ -418,7 +421,7 @@ class GuardianProfile(BaseModel):
         return f'Guardian Profile for {self.user}'
 
     def clean(self):
-        if self.user.role != Role.guardian_role():
+        if self.user.role.name != Role.RoleName.GUARDIAN:
             raise ValidationError(_("User must have role 'guardian' for GuardianProfile."))
 
 
@@ -443,7 +446,7 @@ class TeacherProfile(BaseModel):
         return f'Profile for {self.user}'
 
     def clean(self):
-        if self.user.role.name != 'teacher':
+        if self.user.role.name != Role.RoleName.TEACHER:
             raise ValidationError(_("User must have role 'teacher' for TeacherProfile."))
 
 
@@ -467,7 +470,7 @@ class ClerkProfile(BaseModel):
         return f'Profile for {self.user}'
 
     def clean(self):
-        if self.user.role != Role.clerk_role():
+        if self.user.role.name != Role.RoleName.CLERK:
             raise ValidationError(_("User must have role 'clerk' for ClerkProfile."))
 
 
@@ -491,13 +494,13 @@ class AdminProfile(BaseModel):
         return f'Profile for {self.user}'
 
     def clean(self):
-        if self.user.role != Role.admin_role():
+        if self.user.role.name != Role.RoleName.ADMIN:
             raise ValidationError(_("User must have role 'admin' for AdminProfile."))
 
 
 class Device(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    token = models.CharField(max_length=255)
+    token = models.CharField(unique=True, max_length=255)
     last_activity = models.DateTimeField(null=True, blank=True, editable=False)
     is_active = models.BooleanField(default=True)
 

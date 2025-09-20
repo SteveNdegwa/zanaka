@@ -1,72 +1,53 @@
 import logging
 
-from audit.context import RequestContext
-from otps.backend.otp_management_service import OTPManagementService
+from audit.decorators import set_activity_name
+from base.views import BaseView
+from otps.services.otp_service import OTPService
 from utils.response_provider import ResponseProvider
 
 logger = logging.getLogger(__name__)
 
 
-class OTPAPIHandler:
-    @staticmethod
-    def send_otp(request):
-        """
-        Sends a one-time password (OTP) to a user.
+class OTPView(BaseView):
+    def post(self, request, action, *args, **kwargs):
+        if action == 'send':
+            return self.send_otp(request, *args, **kwargs)
+        elif action == 'verify':
+            return self.verify_otp(request, *args, **kwargs)
+        return ResponseProvider.bad_request(message='Invalid action specified')
 
-        :param request: Django HTTP request object containing 'purpose', 'delivery_method', 'contact', and
-         optional 'user_id'.
-        :type request: HttpRequest
-        :return: JSON response with status code, message, and success status.
-        :rtype: JsonResponse
-        :raises Exception: On OTP sending failure.
-        """
-        try:
-            data = RequestContext.data
-            purpose = data.get('purpose', '')
-            delivery_method = data.get('delivery_method', '')
-            contact = data.get('contact', '')
-            user_id = data.get('user_id', '')
-            token = RequestContext.token
+    @set_activity_name('Send OTP')
+    def send_otp(self, request, *args, **kwargs):
+        purpose = self.data.get('purpose', '')
+        delivery_method = self.data.get('delivery_method', '')
+        contact = self.data.get('contact', '')
+        user_id = self.data.get('user_id', '')
+        token = self.token
 
-            OTPManagementService().send_otp(
-                purpose=purpose,
-                delivery_method=delivery_method,
-                contact=contact,
-                user_id=user_id,
-                token=token
-            )
-            return ResponseProvider.success(message='OTP sent successfully')
-        except Exception as ex:
-            logger.exception('OTPAPIHandler - send_otp exception: %s', ex)
-            return ResponseProvider.error(message='An error occurred while sending the OTP', error=str(ex))
+        OTPService.send_otp(
+            purpose=purpose,
+            delivery_method=delivery_method,
+            contact=contact,
+            user_id=user_id,
+            token=token,
+        )
 
-    @staticmethod
-    def verify_otp(request):
-        """
-        Verifies a one-time password (OTP) provided by the user.
+        return ResponseProvider.success(message='OTP sent successfully')
 
-        :param request: Django HTTP request object containing 'purpose', 'code', 'contact', and optional 'user_id'.
-        :type request: HttpRequest
-        :return: JSON response with status code, message, and success status.
-        :rtype: JsonResponse
-        :raises Exception: On OTP verification failure.
-        """
-        try:
-            data = RequestContext.data
-            purpose = data.get('purpose', '')
-            code = data.get('code', '')
-            contact = data.get('contact', '')
-            user_id = data.get('user_id', '')
-            token = RequestContext.token
+    @set_activity_name('Verify OTP')
+    def verify_otp(self, request, *args, **kwargs):
+        purpose = self.data.get('purpose', '')
+        code = self.data.get('code', '')
+        contact = self.data.get('contact', '')
+        user_id = self.data.get('user_id', '')
+        token = self.token
 
-            OTPManagementService().verify_otp(
-                purpose=purpose,
-                code=code,
-                contact=contact,
-                user_id=user_id,
-                token=token
-            )
-            return ResponseProvider.success(message='OTP verified successfully')
-        except Exception as ex:
-            logger.exception('OTPAPIHandler - verify_otp exception: %s', ex)
-            return ResponseProvider.error(message='An error occurred while verifying the OTP', error=str(ex))
+        OTPService.verify_otp(
+            purpose=purpose,
+            code=code,
+            contact=contact,
+            user_id=user_id,
+            token=token,
+        )
+
+        return ResponseProvider.success(message='OTP verified successfully')
