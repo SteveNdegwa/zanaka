@@ -1,5 +1,6 @@
 from django.contrib.contenttypes.models import ContentType
-from audit.context import RequestContext
+
+from audit.services.request_context import RequestContext
 
 
 class AuditableMixin:
@@ -11,12 +12,13 @@ class AuditableMixin:
     def _is_tracking_enabled(self, action: str) -> bool:
         from audit.models import AuditConfiguration, AuditEventType
 
-        config = AuditConfiguration.objects.get(
-            app_label=self._meta.app_label,
-            model_name=self._meta.model_name,
-            is_enabled=True,
-        )
-        if config is None:
+        try:
+            config = AuditConfiguration.objects.get(
+                app_label=self._meta.app_label,
+                model_name=self._meta.model_name,
+                is_enabled=True,
+            )
+        except AuditConfiguration.DoesNotExist:
             return False
 
         if action == AuditEventType.CREATE:
@@ -65,6 +67,7 @@ class AuditableMixin:
 
         AuditLog.objects.create(
             request_id=context.get('request_id'),
+            api_client=context.get('api_client'),
             user=context.get('user'),
             ip_address=context.get('ip_address'),
             user_agent=context.get('user_agent'),
@@ -82,9 +85,11 @@ class AuditableMixin:
         return result
 
     def delete(self, *args, **kwargs):
+        print("-----------------------")
         from audit.models import AuditEventType, AuditSeverity, AuditLog
 
         if not self._is_tracking_enabled(AuditEventType.DELETE):
+            print("here")
             return super().delete(*args, **kwargs)
 
         context = RequestContext.get()
@@ -96,8 +101,11 @@ class AuditableMixin:
             if field.name not in self._excluded_audit_fields()
         }
 
+        print("qjsijajjiajijdi")
+
         AuditLog.objects.create(
             request_id=context.get('request_id'),
+            api_client=context.get('api_client'),
             user=context.get('user'),
             ip_address=context.get('ip_address'),
             user_agent=context.get('user_agent'),

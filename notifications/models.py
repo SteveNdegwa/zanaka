@@ -1,65 +1,82 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from base.models import BaseModel
+from base.models import BaseModel, GenericBaseModel
+
+
+class NotificationType(models.TextChoices):
+    EMAIL = "email", _("Email")
+    SMS = "sms", _("SMS")
+
+
+class NotificationFrequency(models.TextChoices):
+    ONCE = "once", _("Once")
+    DAILY = "daily", _("Daily")
+    WEEKLY = "weekly", _("Weekly")
+    MONTHLY = "monthly", _("Monthly")
+
+
+class NotificationStatus(models.TextChoices):
+    PENDING = "pending", _("Pending")
+    QUEUED = "queued", _("Queued")
+    CONFIRMATION_PENDING = "confirmation_pending", _("Confirmation Pending")
+    SENT = "sent", _("Sent")
+    FAILED = "failed", _("Failed")
+
+
+class Template(GenericBaseModel):
+    notification_type = models.CharField(max_length=10, choices=NotificationType.choices)
+    subject = models.CharField(max_length=255, blank=True)
+    body = models.TextField()
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ('-date_created',)
+
+
+class Provider(GenericBaseModel):
+    notification_type = models.CharField(max_length=10, choices=NotificationType.choices)
+    priority = models.IntegerField(null=True, blank=True)
+    config = models.JSONField()
+    is_active = models.BooleanField(default=True)
+    class_name = models.CharField(max_length=100,  help_text="Callback class containing its config")
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ('-date_created',)
 
 
 class Notification(BaseModel):
-    class NotificationFrequency(models.TextChoices):
-        ONCE = 'ONCE', _('Once')
-        DAILY = 'DAILY', _('Daily')
-        WEEKLY = 'WEEKLY', _('Weekly')
-        MONTHLY = 'MONTHLY', _('Monthly')
-
-    class DeliveryMethods(models.TextChoices):
-        SMS = 'SMS', _('SMS')
-        EMAIL = 'EMAIL', _('Email')
-        PUSH = 'PUSH', _('Push')
-
-    class Status(models.TextChoices):
-        PENDING = 'PENDING', _('Pending')
-        QUEUED = 'QUEUED', _('Queued')
-        CONFIRMATION_PENDING = 'CONFIRMATION_PENDING', _('Confirmation Pending')
-        SENT = 'SENT', _('Sent')
-        FAILED = 'FAILED', _('Failed')
-
-    user = models.ForeignKey(
-        'users.User',
-        null=True,
-        blank=True,
-        on_delete=models.CASCADE,
-        verbose_name=_('User')
-    )
-    delivery_method = models.CharField(
-        max_length=10,
-        choices=DeliveryMethods.choices,
-        default=DeliveryMethods.PUSH,
-        verbose_name=_('Delivery Method')
-    )
-    context = models.JSONField(default=dict, verbose_name=_('Context'))
-    template = models.CharField(max_length=100, verbose_name=_('Template'))
+    user = models.ForeignKey('users.User', null=True, blank=True, on_delete=models.CASCADE)
+    notification_type = models.CharField(max_length=10, choices=NotificationType.choices)
+    template = models.ForeignKey(Template, null=True, on_delete=models.SET_NULL)
+    provider = models.ForeignKey(Provider, null=True, on_delete=models.SET_NULL)
+    recipients = models.JSONField(default=list)
+    context = models.JSONField()
     frequency = models.CharField(
         max_length=20,
         choices=NotificationFrequency.choices,
-        default=NotificationFrequency.ONCE,
-        verbose_name=_('Frequency')
+        default=NotificationFrequency.ONCE
     )
     unique_key = models.CharField(
         max_length=255,
         null=True,
         blank=True,
         unique=True,
-        help_text=_('Unique key to identify the notification. Generated when saving the notification.'),
-        verbose_name=_('Unique Key')
+        help_text="Unique key to identify the notification.")
+    sent_time = models.DateTimeField(blank=True, null=True)
+    failure_message = models.CharField(max_length=255, null=True, blank=True)
+    failure_traceback = models.TextField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=NotificationStatus.choices,
+        default=NotificationStatus.PENDING
     )
-    recipients = models.JSONField(
-        default=list,
-        help_text=_('List of recipients for the notification.'),
-        verbose_name=_('Recipients')
-    )
-    sent_time = models.DateTimeField(blank=True, null=True, verbose_name=_('Sent Time'))
-    response_data = models.JSONField(blank=True, null=True, verbose_name=_('Response Data'))
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, verbose_name=_('Status'))
 
     class Meta:
         indexes = [
@@ -67,8 +84,6 @@ class Notification(BaseModel):
             models.Index(fields=['unique_key'])
         ]
         ordering = ('-date_created',)
-        verbose_name = _('Notification')
-        verbose_name_plural = _('Notifications')
 
-    def __str__(self):
-        return f'{self.user} - {self.delivery_method}'
+    def _str_(self):
+        return '%s - %s' % (self.notification_type, self.recipients)

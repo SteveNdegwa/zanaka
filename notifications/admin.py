@@ -1,31 +1,77 @@
 from django.contrib import admin
-from .models import Notification
+from .models import Template, Provider, Notification
+
+
+@admin.register(Template)
+class TemplateAdmin(admin.ModelAdmin):
+    list_display = ("name", "notification_type", "subject", "is_active", "date_created")
+    list_filter = ("notification_type", "is_active")
+    search_fields = ("name", "subject", "body")
+    ordering = ("-date_created",)
+
+    fieldsets = (
+        ("Template Details", {
+            "fields": ("name", "notification_type", "subject", "body"),
+        }),
+        ("Status", {
+            "fields": ("is_active",),
+        }),
+        ("Metadata", {
+            "fields": ("date_created", "date_modified"),
+            "classes": ("collapse",),
+        }),
+    )
+    readonly_fields = ("date_created", "date_modified")
+
+
+@admin.register(Provider)
+class ProviderAdmin(admin.ModelAdmin):
+    list_display = ("name", "notification_type", "priority", "is_active", "date_created")
+    list_filter = ("notification_type", "is_active")
+    search_fields = ("name", "class_name")
+    ordering = ("-date_created",)
+
+    fieldsets = (
+        ("Provider Details", {
+            "fields": ("name", "notification_type", "priority", "class_name"),
+        }),
+        ("Configuration", {
+            "fields": ("config",),
+        }),
+        ("Status", {
+            "fields": ("is_active",),
+        }),
+        ("Metadata", {
+            "fields": ("date_created", "date_modified"),
+            "classes": ("collapse",),
+        }),
+    )
+    readonly_fields = ("date_created", "date_modified")
+
 
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
     list_display = (
-        'user', 'delivery_method', 'template', 'recipients', 'frequency',
-        'status', 'sent_time', 'date_created'
+        "id", "user", "notification_type", "provider", "status", "frequency",
+        "sent_time", "failure_message", "date_created"
     )
-    list_filter = ('delivery_method', 'frequency', 'status', 'date_created')
-    search_fields = (
-        'user__id', 'user__reg_number', 'user__username', 'user__first_name', 'user__last_name',
-        'user__other_name', 'user__id_number', 'user__email', 'user_phone_number', 'template',
-        'unique_key'
-    )
-    readonly_fields = ('date_created', 'date_modified', 'sent_time')
+    list_filter = ("status", "frequency", "notification_type", "provider")
+    search_fields = ("unique_key", "recipients", "context", "failure_message", "failure_traceback")
+    ordering = ("-date_created",)
 
     fieldsets = (
-        (None, {
-            'fields': ('user', 'delivery_method', 'template', 'frequency', 'unique_key', 'recipients')
+        ("Notification Details", {
+            "fields": (
+                "user", "notification_type", "template", "provider",
+                "recipients", "context", "frequency"
+            ),
         }),
-        ('Status & Response', {
-            'fields': ('status', 'sent_time', 'response_data')
+        ("Tracking & Status", {
+            "fields": ("unique_key", "sent_time", "status", "failure_message", "failure_traceback"),
         }),
-        ('Additional Info', {
-            'fields': ('context',)
-        }),
-        ('Timestamps', {
-            'fields': ('date_created', 'date_modified')
+        ("Metadata", {
+            "fields": ("date_created", "date_modified"),
+            "classes": ("collapse",),
         }),
     )
+    readonly_fields = ("date_created", "date_modified", "failure_traceback")

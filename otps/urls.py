@@ -1,7 +1,7 @@
 from django.urls import path
-
-from otps.views import OTPView
+from otps import views
 
 urlpatterns = [
-    path('<str:action>/', OTPView.as_view(), name='otps'),
+    path('send/', views.send_otp, name='send_otp'),
+    path('verify/', views.verify_otp, name='verify_otp'),
 ]

@@ -9,6 +9,8 @@ from base.models import BaseModel
 
 class RequestLog(BaseModel):
     request_id = models.UUIDField(editable=False, verbose_name=_("Request ID"))
+    api_client = models.ForeignKey(
+        'api.APIClient', null=True, on_delete=models.SET_NULL, verbose_name=_("API Client"))
     user = models.ForeignKey('users.User', null=True, on_delete=models.SET_NULL, verbose_name=_("User"))
     token = models.CharField(max_length=255, null=True, blank=True, verbose_name=_("Token"))
     is_authenticated = models.BooleanField(default=False, verbose_name=_("Is Authenticated"))
@@ -17,6 +19,7 @@ class RequestLog(BaseModel):
     session_key = models.CharField(max_length=40, null=True, blank=True, verbose_name=_("Session Key"))
     request_method = models.CharField(max_length=10, verbose_name=_("Request Method"))
     request_path = models.TextField(verbose_name=_("Request Path"))
+    request_data = models.JSONField(null=True, blank=True, verbose_name=_("Request Data"))
     is_secure = models.BooleanField(default=False, verbose_name=_("Is Secure"))
     view_name = models.CharField(max_length=255, null=True, blank=True, verbose_name=_("View Name"))
     view_args = models.JSONField(null=True, blank=True, verbose_name=_("View Args"))
@@ -71,6 +74,8 @@ class AuditSeverity(models.TextChoices):
 
 class AuditLog(BaseModel):
     request_id = models.UUIDField(null=True, blank=True, verbose_name=_("Request ID"))
+    api_client = models.ForeignKey(
+        'api.APIClient', null=True, blank=True, on_delete=models.SET_NULL, verbose_name=_("API Client"))
     user = models.ForeignKey('users.User', null=True, blank=True, on_delete=models.SET_NULL, verbose_name=_("User"))
     ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name=_("IP Address"))
     user_agent = models.TextField(null=True, blank=True, verbose_name=_("User Agent"))

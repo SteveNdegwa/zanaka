@@ -1,9 +1,10 @@
-import logging
 import re
+import logging
 
 from django.contrib.auth.base_user import AbstractBaseUser
+from django.contrib.auth.hashers import make_password, identify_hasher
 from django.contrib.auth.models import PermissionsMixin
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, PermissionDenied
 from django.db import models
 from django.db.models import Max
 from django.utils import timezone
@@ -11,23 +12,24 @@ from django.utils.translation import gettext_lazy as _
 
 from base.models import GenericBaseModel, BaseModel
 from users.managers import CustomUserManager
+from utils.common import generate_random_password
 
 logger = logging.getLogger(__name__)
 
 
 class Role(GenericBaseModel):
     class RoleName(models.TextChoices):
-        STUDENT = "student", _("Student")
-        GUARDIAN = "guardian", _("Guardian")
-        TEACHER = "teacher", _("Teacher")
-        CLERK = "clerk", _("Clerk")
-        ADMIN = "admin", _("Admin")
+        STUDENT = 'student', _('Student')
+        GUARDIAN = 'guardian', _('Guardian')
+        TEACHER = 'teacher', _('Teacher')
+        CLERK = 'clerk', _('Clerk')
+        ADMIN = 'admin', _('Admin')
 
     name = models.CharField(
         max_length=50,
         unique=True,
         choices=RoleName.choices,
-        verbose_name=_("Name"),
+        verbose_name=_('Name'),
     )
     can_login = models.BooleanField(default=False, verbose_name=_('Can login'))
     is_active = models.BooleanField(default=True, verbose_name=_('Is active'))
@@ -140,7 +142,7 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
     )
     role = models.ForeignKey(Role, on_delete=models.CASCADE, verbose_name=_('Role'))
     branch = models.ForeignKey(
-        'school.Branch',
+        'schools.Branch',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -165,6 +167,7 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
     )
 
     USERNAME_FIELD = 'username'
+
     manager = CustomUserManager()
 
     class Meta:
@@ -246,43 +249,96 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
 
         return f'{prefix}-{str(new_number).zfill(4)}'
 
+    def reset_password(self):
+        if not self.role.can_login:
+            raise PermissionDenied()
+        new_password = generate_random_password()
+        self.password = make_password(new_password)
+        self.save()
+
+        from notifications.services.notification_services import NotificationServices
+        from notifications.models import NotificationType
+        notification_context = {"name": self.first_name, "new_password": new_password}
+        NotificationServices.send_notification(
+            user=self,
+            notification_type=NotificationType.EMAIL,
+            template_name="email_reset_password",
+            context=notification_context
+        )
+
     def save(self, *args, **kwargs):
+        notification_context = {}
+
+        # Ensure role is provided
         if not self.role:
             raise ValueError("User's role must be provided")
+
+        # Ensure first name is provided
+        if not self.first_name:
+            raise ValueError("User's first name must be provided")
+
+        # Generate username if not provided
         if not self.username:
             self.username = self.generate_username()
+
+        # Generate phone number if not provided
         if not self.reg_number:
             self.reg_number = self.generate_reg_number()
+
+        # Generate password if not provided
+        if not self.password:
+            password = generate_random_password()
+            self.password = make_password(password)
+            notification_context['password'] = password
+
+        # Ensure password is hashed
+        # noinspection PyBroadException
+        try:
+            identify_hasher(self.password)
+        except:
+            self.password = make_password(self.password)
+
+        # Save
         super().save(*args, **kwargs)
+
+        # Send notification if creating new user
+        if self._state.adding and self.role.can_login:
+            notification_context['name'] = self.first_name
+            from notifications.services.notification_services import NotificationServices
+            from notifications.models import NotificationType
+            NotificationServices.send_notification(
+                user=self,
+                notification_type=NotificationType.EMAIL,
+                template_name="email_new_user",
+                context=notification_context
+            )
 
     @property
     def permissions(self):
-        try:
-            if self.is_superuser:
-                return list(
-                    Permission.objects.filter(is_active=True)
-                    .values_list('name', flat=True)
-                )
+        if self.is_superuser:
+            return list(
+                Permission.objects.filter(is_active=True)
+                .values_list('name', flat=True)
+            )
 
-            role_permissions = RolePermission.objects.filter(
-                role=self.role,
-                permission__is_active=True,
-                is_active=True
-            ).values_list('permission__name', flat=True)
+        role_permissions = RolePermission.objects.filter(
+            role=self.role,
+            permission__is_active=True,
+            is_active=True
+        ).values_list('permission__name', flat=True)
 
-            extended_permissions = ExtendedPermission.objects.filter(
-                user=self,
-                permission__is_active=True,
-                is_active=True
-            ).values_list('permission__name', flat=True)
+        extended_permissions = ExtendedPermission.objects.filter(
+            user=self,
+            permission__is_active=True,
+            is_active=True
+        ).values_list('permission__name', flat=True)
 
-            permissions = list(set(role_permissions).union(extended_permissions))
+        permissions = list(set(role_permissions).union(extended_permissions))
 
-            return permissions
+        return permissions
 
-        except Exception as e:
-            logger.exception('User model - get_permissions exception: %s' % e)
-            return []
+    def has_permission(self, permission_name):
+        return permission_name in self.permissions
 
 
 class StudentGuardian(BaseModel):
@@ -367,7 +423,7 @@ class StudentProfile(BaseModel):
         verbose_name=_('NEMIS number')
     )
     classroom = models.ForeignKey(
-        'school.Classroom',
+        'schools.Classroom',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

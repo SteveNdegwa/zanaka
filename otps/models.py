@@ -7,14 +7,14 @@ from base.models import BaseModel
 
 class OTP(BaseModel):
     class PurposeTypes(models.TextChoices):
-        PHONE_VERIFICATION = 'PHONE_VERIFICATION', _('Phone Verification')
-        EMAIL_VERIFICATION = 'EMAIL_VERIFICATION', _('Email Verification')
-        TWO_FACTOR_AUTHENTICATION = '2FA', _('Two-Factor Authentication')
-        PASSWORD_RESET = 'PASSWORD_RESET', _('Password Reset')
+        PHONE_VERIFICATION = 'phone_verification', _('Phone Verification')
+        EMAIL_VERIFICATION = 'email_verification', _('Email Verification')
+        TWO_FACTOR_AUTHENTICATION = '2fa', _('Two-Factor Authentication')
+        PASSWORD_RESET = 'password_reset', _('Password Reset')
 
     class DeliveryMethods(models.TextChoices):
-        SMS = 'SMS', _('SMS')
-        EMAIL = 'EMAIL', _('Email')
+        SMS = 'sms', _('SMS')
+        EMAIL = 'email', _('Email')
 
     user = models.ForeignKey(
         'users.User',

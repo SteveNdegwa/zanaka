@@ -27,7 +27,6 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -37,12 +36,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'api',
     'audit',
     'authentication',
     'base',
     'notifications',
     'otps',
-    'school',
+    'schools',
     'users',
 ]
 
@@ -54,7 +54,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'audit.middleware.RequestContextMiddleware',
+    # 'audit.middlewares.RequestContextMiddleware',
+    'api.middlewares.GatewayControlMiddleware',
 ]
 
 ROOT_URLCONF = 'zanaka.urls'
@@ -132,6 +133,9 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 SYSTEM_NAME = 'Zanaka'
+
+# Auth settings
+TWO_FACTOR_AUTHENTICATION_REQUIRED = True
 
 # Notification settings
 QUEUE_NOTIFICATIONS = False

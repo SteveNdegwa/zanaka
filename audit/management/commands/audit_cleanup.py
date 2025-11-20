@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.core.management import BaseCommand
 from django.utils import timezone
 
-from audit.services import AuditLogService
+from audit.models import AuditLog
 
 
 class Command(BaseCommand):
@@ -32,7 +32,7 @@ class Command(BaseCommand):
             retention_days = 2555
 
         cutoff_date = timezone.now() - timedelta(days=retention_days)
-        old_logs = AuditLogService().filter(date_created__lt=cutoff_date)
+        old_logs = AuditLog.objects.filter(date_created__lt=cutoff_date)
         count = old_logs.count()
 
         if options['dry_run']:

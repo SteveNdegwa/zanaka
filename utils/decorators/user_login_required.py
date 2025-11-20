@@ -1,0 +1,29 @@
+import functools
+
+from django.core.exceptions import PermissionDenied
+
+from utils.response_provider import ResponseProvider
+
+
+def user_login_required(required_permission=None):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(request, *args, **kwargs):
+            user = request.user
+            if not user or not user.is_authenticated:
+                return ResponseProvider.unauthorized()
+
+            if required_permission:
+                perms = [required_permission] if isinstance(required_permission, str) else required_permission
+                if not any(user.has_permission(perm) for perm in perms):
+                    raise PermissionDenied()
+
+            return func(request, *args, **kwargs)
+
+        return wrapper
+
+    if callable(required_permission):
+        _func = required_permission
+        required_permission = None
+        return decorator(_func)
+    return decorator

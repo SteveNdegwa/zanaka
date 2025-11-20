@@ -1,53 +1,38 @@
-import logging
-
-from audit.decorators import set_activity_name
-from base.views import BaseView
-from otps.services.otp_service import OTPService
+from otps.services.otp_services import OTPServices
 from utils.response_provider import ResponseProvider
 
-logger = logging.getLogger(__name__)
+
+def send_otp(request):
+    purpose = request.data.get('purpose', '')
+    delivery_method = request.data.get('delivery_method', '')
+    contact = request.data.get('contact', '')
+    user_id = request.data.get('user_id', '')
+    token = getattr(request, 'token', None)
+
+    OTPServices.send_otp(
+        purpose=purpose,
+        delivery_method=delivery_method,
+        contact=contact,
+        user_id=user_id,
+        token=token,
+    )
+
+    return ResponseProvider.success(message='OTP sent successfully')
 
 
-class OTPView(BaseView):
-    def post(self, request, action, *args, **kwargs):
-        if action == 'send':
-            return self.send_otp(request, *args, **kwargs)
-        elif action == 'verify':
-            return self.verify_otp(request, *args, **kwargs)
-        return ResponseProvider.bad_request(message='Invalid action specified')
+def verify_otp(request):
+    purpose = request.data.get('purpose', '')
+    code = request.data.get('code', '')
+    contact = request.data.get('contact', '')
+    user_id = request.data.get('user_id', '')
+    token = getattr(request, 'token', None)
 
-    @set_activity_name('Send OTP')
-    def send_otp(self, request, *args, **kwargs):
-        purpose = self.data.get('purpose', '')
-        delivery_method = self.data.get('delivery_method', '')
-        contact = self.data.get('contact', '')
-        user_id = self.data.get('user_id', '')
-        token = self.token
+    OTPServices.verify_otp(
+        purpose=purpose,
+        code=code,
+        contact=contact,
+        user_id=user_id,
+        token=token,
+    )
 
-        OTPService.send_otp(
-            purpose=purpose,
-            delivery_method=delivery_method,
-            contact=contact,
-            user_id=user_id,
-            token=token,
-        )
-
-        return ResponseProvider.success(message='OTP sent successfully')
-
-    @set_activity_name('Verify OTP')
-    def verify_otp(self, request, *args, **kwargs):
-        purpose = self.data.get('purpose', '')
-        code = self.data.get('code', '')
-        contact = self.data.get('contact', '')
-        user_id = self.data.get('user_id', '')
-        token = self.token
-
-        OTPService.verify_otp(
-            purpose=purpose,
-            code=code,
-            contact=contact,
-            user_id=user_id,
-            token=token,
-        )
-
-        return ResponseProvider.success(message='OTP verified successfully')
+    return ResponseProvider.success(message='OTP verified successfully')
