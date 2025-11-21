@@ -213,7 +213,7 @@ class GatewayControlMiddleware:
         identity = (
             Identity.objects
             .filter(~Q(user=None), token=token, status="ACTIVE")
-            .order_by("-date_created")
+            .order_by("-created_at")
             .first()
         )
 
@@ -432,7 +432,7 @@ class GatewayControlMiddleware:
     @staticmethod
     def _load_system_keys():
         try:
-            system_key = SystemKey.objects.filter(is_active=True).order_by("-date_created").first()
+            system_key = SystemKey.objects.filter(is_active=True).order_by("-created_at").first()
             if not system_key:
                 logger.error("No active system key found in database.")
                 return None, None

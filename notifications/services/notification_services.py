@@ -13,14 +13,24 @@ from notifications.services.notification_types.email_notification import EmailNo
 from notifications.services.notification_types.sms_notification import SMSNotification
 from notifications.services.providers.base_provider import BaseProvider
 from notifications.services.providers.providers_registry import PROVIDER_CLASSES
-from notifications.models import NotificationFrequency, NotificationType, NotificationStatus, Provider, Notification, \
+from notifications.models import (
+    NotificationFrequency,
+    NotificationType,
+    NotificationStatus,
+    Provider,
+    Notification,
     Template
-from users.models import User, Role, StudentGuardian
+)
+from users.models import User, StudentGuardian, RoleName
 
 logger = logging.getLogger(__name__)
 
 
 class NotificationServices:
+    """
+    Service class responsible for preparing, validating, scheduling, and sending notifications.
+    """
+
     NOTIFICATION_HANDLERS: Dict[str, Type[BaseNotification]] = {
         "EMAIL": EmailNotification,
         "SMS": SMSNotification,
@@ -28,6 +38,19 @@ class NotificationServices:
 
     @classmethod
     def _generate_unique_key(cls, user: User, key: str, frequency: str) -> str:
+        """
+        Generates a unique SHA-256 hash used for deduplication of notifications
+        based on the user, key, and selected frequency window.
+
+        :param user: The user associated with the notification.
+        :type user: User
+        :param key: Identifier used to deduplicate similar notifications.
+        :type key: str
+        :param frequency: Frequency constraint for deduplication.
+        :type frequency: str
+        :return: A hashed unique key string.
+        :rtype: str
+        """
         now = datetime.now()
         if frequency == NotificationFrequency.MONTHLY:
             key_str = f"{user.id}_{key}_{now.year}_{now.month}"
@@ -42,6 +65,14 @@ class NotificationServices:
 
     @classmethod
     def _get_deduplication_window(cls, frequency: str) -> Optional[timedelta]:
+        """
+        Returns a time window used to check for duplicate notifications.
+
+        :param frequency: Notification frequency.
+        :type frequency: str
+        :return: A timedelta window or None if unrestricted.
+        :rtype: Optional[timedelta]
+        """
         if frequency == NotificationFrequency.MONTHLY:
             return timedelta(days=31)
         elif frequency == NotificationFrequency.WEEKLY:
@@ -53,6 +84,19 @@ class NotificationServices:
 
     @classmethod
     def _is_duplicate(cls, user: User, unique_key: str, frequency: str) -> bool:
+        """
+        Determines whether an equivalent notification already exists within the
+        relevant deduplication window.
+
+        :param user: The user receiving the notification.
+        :type user: User
+        :param unique_key: Hashed deduplication key.
+        :type unique_key: str
+        :param frequency: Notification frequency.
+        :type frequency: str
+        :return: True if a duplicate exists, False otherwise.
+        :rtype: bool
+        """
         window = cls._get_deduplication_window(frequency)
         if window is None:
             return Notification.objects.filter(
@@ -62,11 +106,22 @@ class NotificationServices:
         return Notification.objects.filter(
             user=user,
             unique_key=unique_key,
-            date_created__gte=datetime.now() - window
+            created_at__gte=datetime.now() - window
         ).exists()
 
     @classmethod
     def _clean_recipients(cls, notification_type: str, recipients: Union[List[str], str]) -> List[str]:
+        """
+        Sanitizes and normalizes recipient values by trimming whitespace,
+        removing invalid entries, and formatting values where required.
+
+        :param notification_type: Type of notification ("email" or "sms").
+        :type notification_type: str
+        :param recipients: A list or comma-separated string of recipients.
+        :type recipients: Union[List[str], str]
+        :return: A cleaned, deduplicated list of recipients.
+        :rtype: List[str]
+        """
         cleaned_recipients = set()
         if isinstance(recipients, str):
             recipients = [recipient for recipient in recipients.split(",")]
@@ -81,6 +136,15 @@ class NotificationServices:
 
     @classmethod
     def _get_notification_handler_instance(cls, notification) -> BaseNotification:
+        """
+        Returns a notification handler class instance based on the notification type.
+
+        :param notification: Notification object instance.
+        :type notification: Notification
+        :return: An instantiated notification handler.
+        :rtype: BaseNotification
+        :raises ValueError: If notification type is unsupported.
+        """
         notification_type_name = notification.notification_type
         notification_class = cls.NOTIFICATION_HANDLERS.get(notification_type_name)
         if not notification_class:
@@ -89,6 +153,15 @@ class NotificationServices:
 
     @classmethod
     def _get_provider_class_instance(cls, provider: Provider) -> BaseProvider:
+        """
+        Returns a provider instance based on the provider's configured class name.
+
+        :param provider: Provider model instance.
+        :type provider: Provider
+        :return: Instantiated provider class.
+        :rtype: BaseProvider
+        :raises ValueError: If provider class is unknown.
+        """
         provider_class = PROVIDER_CLASSES.get(provider.class_name, None)
         if provider_class is None:
             raise ValueError(f"Unknown provider class: {provider.class_name}")
@@ -96,6 +169,15 @@ class NotificationServices:
 
     @classmethod
     def deliver_notification(cls, notification_id: str) -> None:
+        """
+        Delivers a notification by preparing content, validating providers,
+        sending through active providers, and updating notification status.
+
+        :param notification_id: The ID of the notification to deliver.
+        :type notification_id: str
+        :raises Exception: If sending fails or no active providers are available.
+        :rtype: None
+        """
         notification = None
         try:
             notification = Notification.objects.get(id=notification_id)
@@ -105,7 +187,9 @@ class NotificationServices:
 
             active_providers = notification_handler.active_providers()
             if not active_providers.exists():
-                raise Exception(f"No active providers found for {notification.notification_type.name} notifications")
+                raise Exception(
+                    f"No active providers found for {notification.notification_type.name} notifications"
+                )
 
             content = notification_handler.prepare_content()
 
@@ -155,6 +239,27 @@ class NotificationServices:
             notification_key: Optional[str] = None,
             frequency: str = NotificationFrequency.ONCE,
     ) -> None:
+        """
+        Creates, validates, and dispatches a notification, optionally applying
+        deduplication rules based on frequency.
+
+        :param user: User receiving the notification (optional).
+        :type user: Optional[User]
+        :param recipients: Explicit list of recipients if user is not provided.
+        :type recipients: Optional[List[str]]
+        :param notification_type: Notification type ("email" or "sms").
+        :type notification_type: str
+        :param template_name: The template name to render.
+        :type template_name: str
+        :param context: Template context variables.
+        :type context: Optional[dict]
+        :param notification_key: Identifier for deduplication.
+        :type notification_key: Optional[str]
+        :param frequency: Deduplication frequency constraint.
+        :type frequency: str
+        :raises ValidationError: For invalid inputs or missing recipients.
+        :rtype: None
+        """
         # Input validation
         notification_type = notification_type.lower()
         if notification_type not in NotificationType.values:
@@ -186,7 +291,7 @@ class NotificationServices:
         # If user is provided, determine recipients based on notification type
         if user:
             field = "email" if notification_type == NotificationType.EMAIL else "phone_number"
-            if not user.role.name == Role.RoleName.STUDENT:
+            if not user.role.name == RoleName.STUDENT:
                 profile = getattr(user, f"{user.role.name}_profile")
                 recipients = [getattr(profile, field)]
             else:

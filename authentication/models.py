@@ -40,7 +40,7 @@ class Identity(BaseModel):
     )
 
     class Meta:
-        ordering = ('-date_created',)
+        ordering = ('-created_at',)
         verbose_name = _('Identity')
         verbose_name_plural = _('Identities')
         indexes = [
@@ -87,9 +87,9 @@ class LoginLog(BaseModel):
     user = models.ForeignKey('users.User', on_delete=models.CASCADE, verbose_name=_('User'))
 
     class Meta:
-        ordering = ('-date_created',)
+        ordering = ('-created_at',)
         verbose_name = _('Login Log')
         verbose_name_plural = _('Login Logs')
 
     def __str__(self) -> str:
-        return f'{self.user.username} @ {self.date_created}'
+        return f'{self.user.username} @ {self.created_at}'

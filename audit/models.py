@@ -119,20 +119,20 @@ class AuditLog(BaseModel):
     )
 
     class Meta:
-        ordering = ['-date_created']
+        ordering = ['-created_at']
         verbose_name = _("Audit Log")
         verbose_name_plural = _("Audit Logs")
         indexes = [
-            models.Index(fields=['date_created', 'event_type']),
+            models.Index(fields=['created_at', 'event_type']),
             models.Index(fields=['content_type', 'object_id']),
-            models.Index(fields=['severity', 'date_created']),
+            models.Index(fields=['severity', 'created_at']),
             models.Index(fields=['user']),
             models.Index(fields=['request_id']),
         ]
 
     def __str__(self):
         actor = self.user or "System"
-        return f'{self.date_created} - {self.event_type} by {actor}'
+        return f'{self.created_at} - {self.event_type} by {actor}'
 
 
 class AuditConfiguration(BaseModel):

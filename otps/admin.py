@@ -7,7 +7,7 @@ from otps.models import OTP
 class OTPAdmin(admin.ModelAdmin):
     list_display = (
         'user', 'purpose', 'delivery_method', 'contact', 'expires_at', 'is_used',
-        'retry_count', 'date_created'
+        'retry_count', 'created_at'
     )
     list_filter = ('purpose', 'delivery_method', 'is_used')
     search_fields = (
@@ -16,8 +16,8 @@ class OTPAdmin(admin.ModelAdmin):
         'user__last_name', 'user__other_name', 'identity__token'
     )
     autocomplete_fields = ('user', 'identity')
-    readonly_fields = ('code', 'date_created', 'expires_at')
-    ordering = ('-date_created',)
+    readonly_fields = ('code', 'created_at', 'expires_at')
+    ordering = ('-created_at',)
 
     def has_add_permission(self, request):
         return False

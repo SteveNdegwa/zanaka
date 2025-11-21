@@ -48,7 +48,7 @@ class AuthServices(BaseServices):
             device=device,
             expires_at__gte=timezone.now(),
             status=Identity.Status.ACTIVE
-        ).order_by('-date_created').first()
+        ).order_by('-created_at').first()
 
         if identity is None:
             status = Identity.Status.ACTIVATION_PENDING if settings.TWO_FACTOR_AUTHENTICATION_REQUIRED else \

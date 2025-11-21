@@ -191,7 +191,7 @@ class OTPServices(BaseServices):
             filter_params['identity'] = identity
 
         otp_queryset = OTP.objects.filter(**filter_params)
-        otp = otp_queryset.order_by('-date_created').first()
+        otp = otp_queryset.order_by('-created_at').first()
         if not otp:
             raise ValidationError('No valid OTP found.')
 

@@ -60,7 +60,7 @@ class ApiClient(BaseModel):
         super().save(*args, **kwargs)
 
     def get_active_public_key(self):
-        return self.keys.filter(is_active=True).order_by("-date_created").first()
+        return self.keys.filter(is_active=True).order_by("-created_at").first()
 
     def __str__(self):
         return f"{self.name} ({'Active' if self.is_active else 'Inactive'})"
@@ -91,7 +91,7 @@ class ApiClientKey(BaseModel):
         verbose_name = "API Client Key"
         verbose_name_plural = "API Client Keys"
         unique_together = ["client", "fingerprint"]
-        ordering = ["-date_created"]
+        ordering = ["-created_at"]
 
     def __str__(self):
         return f"{self.client.name} [{self.fingerprint[:12]}...]"
@@ -120,7 +120,7 @@ class SystemKey(BaseModel):
     class Meta:
         verbose_name = "System Key"
         verbose_name_plural = "System Keys"
-        ordering = ["-date_created"]
+        ordering = ["-created_at"]
 
     def __str__(self):
         return f"{self.name} [{self.fingerprint[:12]}...]"
@@ -234,5 +234,5 @@ class RateLimitBlock(BaseModel):
     blocked_until = models.DateTimeField(db_index=True)
 
     class Meta:
-        ordering = ['-date_modified']
+        ordering = ['-updated_at']
         unique_together = ['rule', 'key']

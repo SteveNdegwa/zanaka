@@ -13,7 +13,7 @@ from users.models import (
     GuardianProfile,
     TeacherProfile,
     ClerkProfile,
-    AdminProfile
+    AdminProfile, RoleName
 )
 from utils.common import validate_password
 
@@ -74,17 +74,16 @@ class UserServices(BaseServices):
         :raises ValidationError: If the user or role-specific user does not exist.
         :rtype: User
         """
-        filters = {"id": user_id, "is_active": True}
+        filters = Q(id=user_id, is_active=True)
         if role_name:
             role = cls.get_role(role_name)
-            filters["role"] = role
+            filters &= Q(role=role)
+
         qs = User.objects.select_related("role")
         if select_for_update:
             qs = qs.select_for_update()
-        try:
-            return qs.get(**filters)
-        except User.DoesNotExist:
-            raise ObjectDoesNotExist(f"{role_name.capitalize()} not found")
+
+        return qs.get(filters)
 
     @classmethod
     def get_role(cls, role_name: str) -> Role:
@@ -95,11 +94,8 @@ class UserServices(BaseServices):
         :raises ValidationError: If the role does not exist.
         :rtype: Role
         """
-        try:
-            role_name = role_name.lower()
-            return Role.objects.get(name=role_name, is_active=True)
-        except Role.DoesNotExist:
-            raise ObjectDoesNotExist(f"Role '{role_name}' not found")
+        role_name = role_name.lower()
+        return Role.objects.get(name=role_name, is_active=True)
 
     @classmethod
     @transaction.atomic
@@ -247,6 +243,8 @@ class UserServices(BaseServices):
             "is_active": user.is_active,
             "is_superuser": user.is_superuser,
             "permissions": user.permissions,
+            "created_at": user.created_at,
+            "updated_at": user.updated_at,
         }
 
         return {**user_data, **profile_data}
@@ -314,7 +312,7 @@ class UserServices(BaseServices):
         :raises ValidationError: If guardian already linked or required fields missing.
         :rtype: StudentGuardian
         """
-        student = cls.get_user(student_id, role_name=Role.RoleName.STUDENT)
+        student = cls.get_user(student_id, role_name=RoleName.STUDENT)
         required_fields = {"guardian_id", "relationship"}
         data = cls._sanitize_and_validate_data(data, required_fields=required_fields)
         data.setdefault("is_primary", False)
@@ -334,8 +332,8 @@ class UserServices(BaseServices):
         :param guardian_id: ID of the guardian.
         :raises ValidationError: If guardian not linked to student.
         """
-        student = cls.get_user(student_id, role_name=Role.RoleName.STUDENT)
-        guardian = cls.get_user(guardian_id, role_name=Role.RoleName.GUARDIAN)
+        student = cls.get_user(student_id, role_name=RoleName.STUDENT)
+        guardian = cls.get_user(guardian_id, role_name=RoleName.GUARDIAN)
         try:
             sg = StudentGuardian.objects.get(student=student, guardian=guardian, is_active=True)
         except StudentGuardian.DoesNotExist:
@@ -352,8 +350,13 @@ class UserServices(BaseServices):
         :param filters: Optional filters for the StudentGuardian queryset.
         :rtype: list[dict]
         """
-        student = cls.get_user(student_id, role_name=Role.RoleName.STUDENT)
-        qs = StudentGuardian.objects.filter(student=student, is_active=True, **filters).select_related("guardian")
+        student = cls.get_user(student_id, role_name=RoleName.STUDENT)
+        qs = StudentGuardian.objects.filter(
+            student=student,
+            is_active=True,
+            **filters
+        ).select_related("guardian")
+
         return [
             {
                 "guardian_id": sg.guardian.id,

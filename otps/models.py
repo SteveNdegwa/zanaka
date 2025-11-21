@@ -48,7 +48,7 @@ class OTP(BaseModel):
     retry_count = models.IntegerField(default=0, verbose_name=_('Retry Count'))
 
     class Meta:
-        ordering = ('-date_created',)
+        ordering = ('-created_at',)
         verbose_name = _('OTP')
         verbose_name_plural = _('OTPs')
 

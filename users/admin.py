@@ -26,14 +26,14 @@ class RoleAdmin(admin.ModelAdmin):
             'fields': ('name', 'description', 'can_login', 'is_active')
         }),
         ('Audit', {
-            'fields': ('id', 'date_created', 'date_modified', 'synced')
+            'fields': ('id', 'created_at', 'updated_at', 'synced')
         }),
     )
-    list_display = ('name', 'can_login', 'is_active', 'date_created', 'date_modified')
-    list_filter = ('can_login', 'is_active', 'date_created', 'date_modified', 'synced')
+    list_display = ('name', 'can_login', 'is_active', 'created_at', 'updated_at')
+    list_filter = ('can_login', 'is_active', 'created_at', 'updated_at', 'synced')
     search_fields = ('id', 'name', 'description')
-    readonly_fields = ('id', 'date_created', 'date_modified', 'synced')
-    ordering = ('-date_created',)
+    readonly_fields = ('id', 'created_at', 'updated_at', 'synced')
+    ordering = ('-created_at',)
 
 
 @admin.register(Permission)
@@ -43,14 +43,14 @@ class PermissionAdmin(admin.ModelAdmin):
             'fields': ('name', 'description', 'is_active')
         }),
         ('Audit', {
-            'fields': ('id', 'date_created', 'date_modified', 'synced')
+            'fields': ('id', 'created_at', 'updated_at', 'synced')
         }),
     )
-    list_display = ('name', 'is_active', 'date_created', 'date_modified')
-    list_filter = ('is_active', 'date_created', 'date_modified', 'synced')
+    list_display = ('name', 'is_active', 'created_at', 'updated_at')
+    list_filter = ('is_active', 'created_at', 'updated_at', 'synced')
     search_fields = ('id', 'name', 'description')
-    readonly_fields = ('id', 'date_created', 'date_modified', 'synced')
-    ordering = ('-date_created',)
+    readonly_fields = ('id', 'created_at', 'updated_at', 'synced')
+    ordering = ('-created_at',)
 
 
 @admin.register(RolePermission)
@@ -60,14 +60,14 @@ class RolePermissionAdmin(admin.ModelAdmin):
             'fields': ('role', 'permission', 'is_active')
         }),
         ('Audit', {
-            'fields': ('id', 'date_created', 'date_modified', 'synced')
+            'fields': ('id', 'created_at', 'updated_at', 'synced')
         }),
     )
-    list_display = ('role', 'permission', 'is_active', 'date_created', 'date_modified')
-    list_filter = ('role', 'permission', 'is_active', 'date_created', 'date_modified', 'synced')
+    list_display = ('role', 'permission', 'is_active', 'created_at', 'updated_at')
+    list_filter = ('role', 'permission', 'is_active', 'created_at', 'updated_at', 'synced')
     search_fields = ('id', 'role__id', 'role__name', 'permission__id', 'permission__name')
-    readonly_fields = ('id', 'date_created', 'date_modified', 'synced')
-    ordering = ('-date_created',)
+    readonly_fields = ('id', 'created_at', 'updated_at', 'synced')
+    ordering = ('-created_at',)
 
 
 @admin.register(ExtendedPermission)
@@ -77,17 +77,17 @@ class ExtendedPermissionAdmin(admin.ModelAdmin):
             'fields': ('user', 'permission', 'is_active')
         }),
         ('Audit', {
-            'fields': ('id', 'date_created', 'date_modified', 'synced')
+            'fields': ('id', 'created_at', 'updated_at', 'synced')
         }),
     )
-    list_display = ('user', 'permission', 'is_active', 'date_created', 'date_modified')
-    list_filter = ('permission', 'is_active', 'date_created', 'date_modified', 'synced')
+    list_display = ('user', 'permission', 'is_active', 'created_at', 'updated_at')
+    list_filter = ('permission', 'is_active', 'created_at', 'updated_at', 'synced')
     search_fields = (
         'id', 'user__id', 'user__username', 'user__reg_number', 'user__first_name',
         'user__last_name', 'permission__id', 'permission__name',
     )
-    readonly_fields = ('id', 'date_created', 'date_modified', 'synced')
-    ordering = ('-date_created',)
+    readonly_fields = ('id', 'created_at', 'updated_at', 'synced')
+    ordering = ('-created_at',)
 
 
 @admin.register(User)
@@ -112,14 +112,14 @@ class UserAdmin(admin.ModelAdmin):
             'fields': ('last_activity',)
         }),
         ('Audit', {
-            'fields': ('date_created', 'date_modified', 'synced')
+            'fields': ('created_at', 'updated_at', 'synced')
         }),
     )
-    list_display = ('username', 'full_name', 'role', 'branch', 'is_active', 'date_created', 'date_modified')
-    list_filter = ('role', 'branch', 'is_active', 'is_staff', 'date_created', 'date_modified')
+    list_display = ('username', 'full_name', 'role', 'branch', 'is_active', 'created_at', 'updated_at')
+    list_filter = ('role', 'branch', 'is_active', 'is_staff', 'created_at', 'updated_at')
     search_fields = ('id', 'username', 'first_name', 'last_name', 'other_name', 'reg_number')
-    readonly_fields = ('id', 'username', 'reg_number', 'date_created', 'date_modified', 'synced', 'last_activity')
-    ordering = ('-date_created',)
+    readonly_fields = ('id', 'username', 'reg_number', 'created_at', 'updated_at', 'synced', 'last_activity')
+    ordering = ('-created_at',)
 
 
 @admin.register(StudentGuardian)
@@ -129,13 +129,13 @@ class StudentGuardianAdmin(admin.ModelAdmin):
             'fields': ('student', 'guardian', 'relationship', 'is_primary', 'can_receive_reports', 'is_active')
         }),
         ('Audit', {
-            'fields': ('id', 'date_created', 'date_modified', 'synced')
+            'fields': ('id', 'created_at', 'updated_at', 'synced')
         }),
     )
-    list_display = ('student', 'guardian', 'relationship', 'is_primary', 'is_active', 'date_created', 'date_modified')
+    list_display = ('student', 'guardian', 'relationship', 'is_primary', 'is_active', 'created_at', 'updated_at')
     list_filter = (
         'relationship', 'is_primary', 'can_receive_reports', 'is_active',
-        'date_created', 'date_modified', 'synced'
+        'created_at', 'updated_at', 'synced'
     )
     search_fields = (
         'student__user__id', 'student__user__reg_number', 'student__user__username',
@@ -144,8 +144,8 @@ class StudentGuardianAdmin(admin.ModelAdmin):
         'guardian__last_name', 'guardian__other_name'
     )
     raw_id_fields = ('student', 'guardian')
-    readonly_fields = ('id', 'date_created', 'date_modified', 'synced')
-    ordering = ('-date_created',)
+    readonly_fields = ('id', 'created_at', 'updated_at', 'synced')
+    ordering = ('-created_at',)
 
 
 @admin.register(StudentProfile)
@@ -158,17 +158,17 @@ class StudentProfileAdmin(admin.ModelAdmin):
             'fields': ('medical_info', 'additional_info')
         }),
         ('Audit', {
-            'fields': ('id', 'date_created', 'date_modified', 'synced')
+            'fields': ('id', 'created_at', 'updated_at', 'synced')
         }),
     )
-    list_display = ('user', 'classroom', 'knec_number', 'nemis_number', 'date_created', 'date_modified')
-    list_filter = ('classroom', 'date_created', 'date_modified', 'synced')
+    list_display = ('user', 'classroom', 'knec_number', 'nemis_number', 'created_at', 'updated_at')
+    list_filter = ('classroom', 'created_at', 'updated_at', 'synced')
     search_fields = (
         'id', 'user__id', 'user__username', 'user__reg_number', 'user__first_name',
         'user__last_name', 'user__other_name', 'knec_number', 'nemis_number'
     )
-    readonly_fields = ('id', 'date_created', 'date_modified', 'synced')
-    ordering = ('-date_created',)
+    readonly_fields = ('id', 'created_at', 'updated_at', 'synced')
+    ordering = ('-created_at',)
 
 
 @admin.register(GuardianProfile)
@@ -178,17 +178,17 @@ class GuardianProfileAdmin(admin.ModelAdmin):
             'fields': ('user', 'id_number', 'phone_number', 'email', 'occupation')
         }),
         ('Audit', {
-            'fields': ('id', 'date_created', 'date_modified', 'synced')
+            'fields': ('id', 'created_at', 'updated_at', 'synced')
         }),
     )
-    list_display = ('user', 'id_number', 'phone_number', 'email', 'occupation', 'date_created', 'date_modified')
-    list_filter = ('date_created', 'date_modified', 'synced')
+    list_display = ('user', 'id_number', 'phone_number', 'email', 'occupation', 'created_at', 'updated_at')
+    list_filter = ('created_at', 'updated_at', 'synced')
     search_fields = (
         'id', 'user__id', 'user__username', 'user__reg_number', 'user__first_name',
         'user__last_name', 'user__other_name', 'id_number', 'phone_number', 'email'
     )
-    readonly_fields = ('id', 'date_created', 'date_modified', 'synced')
-    ordering = ('-date_created',)
+    readonly_fields = ('id', 'created_at', 'updated_at', 'synced')
+    ordering = ('-created_at',)
 
 
 @admin.register(TeacherProfile)
@@ -198,17 +198,17 @@ class TeacherProfileAdmin(admin.ModelAdmin):
             'fields': ('user', 'tsc_number', 'id_number', 'phone_number', 'email')
         }),
         ('Audit', {
-            'fields': ('id', 'date_created', 'date_modified', 'synced')
+            'fields': ('id', 'created_at', 'updated_at', 'synced')
         }),
     )
-    list_display = ('user', 'tsc_number', 'id_number', 'phone_number', 'email', 'date_created', 'date_modified')
-    list_filter = ('date_created', 'date_modified', 'synced')
+    list_display = ('user', 'tsc_number', 'id_number', 'phone_number', 'email', 'created_at', 'updated_at')
+    list_filter = ('created_at', 'updated_at', 'synced')
     search_fields = (
         'id', 'user__id', 'user__username', 'user__reg_number', 'user__first_name', 'user__last_name',
         'user__other_name', 'tsc_number', 'id_number', 'phone_number', 'email',
     )
-    readonly_fields = ('id', 'date_created', 'date_modified', 'synced')
-    ordering = ('-date_created',)
+    readonly_fields = ('id', 'created_at', 'updated_at', 'synced')
+    ordering = ('-created_at',)
 
 
 @admin.register(ClerkProfile)
@@ -218,17 +218,17 @@ class ClerkProfileAdmin(admin.ModelAdmin):
             'fields': ('user', 'id_number', 'phone_number', 'email')
         }),
         ('Audit', {
-            'fields': ('id', 'date_created', 'date_modified', 'synced')
+            'fields': ('id', 'created_at', 'updated_at', 'synced')
         }),
     )
-    list_display = ('user', 'id_number', 'phone_number', 'email', 'date_created', 'date_modified')
-    list_filter = ('date_created', 'date_modified', 'synced')
+    list_display = ('user', 'id_number', 'phone_number', 'email', 'created_at', 'updated_at')
+    list_filter = ('created_at', 'updated_at', 'synced')
     search_fields = (
         'id', 'user__id', 'user__username', 'user__reg_number', 'user__first_name', 'user__last_name',
         'user__other_name', 'id_number', 'phone_number', 'email'
     )
-    readonly_fields = ('id', 'date_created', 'date_modified', 'synced')
-    ordering = ('-date_created',)
+    readonly_fields = ('id', 'created_at', 'updated_at', 'synced')
+    ordering = ('-created_at',)
 
 
 @admin.register(AdminProfile)
@@ -238,17 +238,17 @@ class AdminProfileAdmin(admin.ModelAdmin):
             'fields': ('user', 'id_number', 'phone_number', 'email')
         }),
         ('Audit', {
-            'fields': ('id', 'date_created', 'date_modified', 'synced')
+            'fields': ('id', 'created_at', 'updated_at', 'synced')
         }),
     )
-    list_display = ('user', 'id_number', 'phone_number', 'email', 'date_created', 'date_modified')
-    list_filter = ('date_created', 'date_modified', 'synced')
+    list_display = ('user', 'id_number', 'phone_number', 'email', 'created_at', 'updated_at')
+    list_filter = ('created_at', 'updated_at', 'synced')
     search_fields = (
         'id', 'user__id', 'user__username', 'user__reg_number', 'user__first_name', 'user__last_name',
         'user__other_name', 'id_number', 'phone_number', 'email'
     )
-    readonly_fields = ('id', 'date_created', 'date_modified', 'synced')
-    ordering = ('-date_created',)
+    readonly_fields = ('id', 'created_at', 'updated_at', 'synced')
+    ordering = ('-created_at',)
 
 
 @admin.register(Device)
@@ -261,14 +261,14 @@ class DeviceAdmin(admin.ModelAdmin):
             'fields': ('last_activity',)
         }),
         ('Audit', {
-            'fields': ('id', 'date_created', 'date_modified', 'synced')
+            'fields': ('id', 'created_at', 'updated_at', 'synced')
         }),
     )
-    list_display = ('user', 'token', 'is_active', 'last_activity', 'date_created', 'date_modified')
-    list_filter = ('is_active', 'date_created', 'date_modified', 'synced')
+    list_display = ('user', 'token', 'is_active', 'last_activity', 'created_at', 'updated_at')
+    list_filter = ('is_active', 'created_at', 'updated_at', 'synced')
     search_fields = (
         'token', 'user__username', 'user__id_number', 'user__phone_number',
         'user__email', 'user__first_name', 'user__last_name',
     )
-    readonly_fields = ('id', 'last_activity', 'date_created', 'date_modified', 'synced')
-    ordering = ('-date_created',)
+    readonly_fields = ('id', 'last_activity', 'created_at', 'updated_at', 'synced')
+    ordering = ('-created_at',)

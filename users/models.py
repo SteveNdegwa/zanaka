@@ -17,14 +17,15 @@ from utils.common import generate_random_password
 logger = logging.getLogger(__name__)
 
 
-class Role(GenericBaseModel):
-    class RoleName(models.TextChoices):
-        STUDENT = 'student', _('Student')
-        GUARDIAN = 'guardian', _('Guardian')
-        TEACHER = 'teacher', _('Teacher')
-        CLERK = 'clerk', _('Clerk')
-        ADMIN = 'admin', _('Admin')
+class RoleName(models.TextChoices):
+    STUDENT = 'student', _('Student')
+    GUARDIAN = 'guardian', _('Guardian')
+    TEACHER = 'teacher', _('Teacher')
+    CLERK = 'clerk', _('Clerk')
+    ADMIN = 'admin', _('Admin')
 
+
+class Role(GenericBaseModel):
     name = models.CharField(
         max_length=50,
         unique=True,
@@ -37,7 +38,7 @@ class Role(GenericBaseModel):
     class Meta:
         verbose_name = _('Role')
         verbose_name_plural = _('Roles')
-        ordering = ('name', '-date_created',)
+        ordering = ('name', '-created_at',)
         indexes = [
             models.Index(fields=['name', 'is_active']),
         ]
@@ -55,7 +56,7 @@ class Permission(GenericBaseModel):
     class Meta:
         verbose_name = _('Permission')
         verbose_name_plural = _('Permissions')
-        ordering = ('name', '-date_created')
+        ordering = ('name', '-created_at')
         indexes = [
             models.Index(fields=['name', 'is_active']),
         ]
@@ -84,7 +85,7 @@ class RolePermission(BaseModel):
     class Meta:
         verbose_name = _('Role Permission')
         verbose_name_plural = _('Role Permissions')
-        ordering = ('-date_created',)
+        ordering = ('-created_at',)
         unique_together = ('role', 'permission')
         indexes = [
             models.Index(fields=['role', 'permission', 'is_active']),
@@ -114,7 +115,7 @@ class ExtendedPermission(BaseModel):
     class Meta:
         verbose_name = _('Extended Permission')
         verbose_name_plural = _('Extended Permissions')
-        ordering = ('-date_created',)
+        ordering = ('-created_at',)
         unique_together = ('user', 'permission')
         indexes = [
             models.Index(fields=['user', 'permission', 'is_active']),
@@ -173,7 +174,7 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
     class Meta:
         verbose_name = _('User')
         verbose_name_plural = _('Users')
-        ordering = ('-date_created',)
+        ordering = ('-created_at',)
         indexes = [
             models.Index(fields=['username', 'is_active']),
         ]
@@ -390,7 +391,7 @@ class StudentGuardian(BaseModel):
         unique_together = ('student', 'guardian')
         verbose_name = _('Student guardian')
         verbose_name_plural = _('Student guardians')
-        ordering = ('-date_created',)
+        ordering = ('-created_at',)
 
     def __str__(self):
         return f'{self.guardian} - {self.relationship} of {self.student}'
@@ -436,13 +437,13 @@ class StudentProfile(BaseModel):
     class Meta:
         verbose_name = _('Student Profile')
         verbose_name_plural = _('Student Profiles')
-        ordering = ('-date_created',)
+        ordering = ('-created_at',)
 
     def __str__(self):
         return f'Profile for {self.user}'
 
     def clean(self):
-        if self.user.role.name != Role.RoleName.STUDENT:
+        if self.user.role.name != RoleName.STUDENT:
             raise ValidationError(_("User must have role 'student' for StudentProfile."))
         if self.classroom and self.user.branch != self.classroom.branch:
             raise ValidationError(_("Classroom must belong to the user's branch."))
@@ -452,7 +453,7 @@ class StudentProfile(BaseModel):
         relationships = StudentGuardian.objects.filter(
             student=self.user,
             is_active=True
-        ).order_by('-is_primary', 'date_created')
+        ).order_by('-is_primary', 'created_at')
         return [rel.guardian for rel in relationships]
 
 
@@ -471,13 +472,13 @@ class GuardianProfile(BaseModel):
     class Meta:
         verbose_name = _('Guardian Profile')
         verbose_name_plural = _('Guardian Profiles')
-        ordering = ('-date_created',)
+        ordering = ('-created_at',)
 
     def __str__(self):
         return f'Guardian Profile for {self.user}'
 
     def clean(self):
-        if self.user.role.name != Role.RoleName.GUARDIAN:
+        if self.user.role.name != RoleName.GUARDIAN:
             raise ValidationError(_("User must have role 'guardian' for GuardianProfile."))
 
 
@@ -496,13 +497,13 @@ class TeacherProfile(BaseModel):
     class Meta:
         verbose_name = _('Teacher Profile')
         verbose_name_plural = _('Teacher Profiles')
-        ordering = ('-date_created',)
+        ordering = ('-created_at',)
 
     def __str__(self):
         return f'Profile for {self.user}'
 
     def clean(self):
-        if self.user.role.name != Role.RoleName.TEACHER:
+        if self.user.role.name != RoleName.TEACHER:
             raise ValidationError(_("User must have role 'teacher' for TeacherProfile."))
 
 
@@ -520,13 +521,13 @@ class ClerkProfile(BaseModel):
     class Meta:
         verbose_name = _('Clerk Profile')
         verbose_name_plural = _('Clerk Profiles')
-        ordering = ('-date_created',)
+        ordering = ('-created_at',)
 
     def __str__(self):
         return f'Profile for {self.user}'
 
     def clean(self):
-        if self.user.role.name != Role.RoleName.CLERK:
+        if self.user.role.name != RoleName.CLERK:
             raise ValidationError(_("User must have role 'clerk' for ClerkProfile."))
 
 
@@ -544,13 +545,13 @@ class AdminProfile(BaseModel):
     class Meta:
         verbose_name = _('Admin Profile')
         verbose_name_plural = _('Admin Profiles')
-        ordering = ('-date_created',)
+        ordering = ('-created_at',)
 
     def __str__(self):
         return f'Profile for {self.user}'
 
     def clean(self):
-        if self.user.role.name != Role.RoleName.ADMIN:
+        if self.user.role.name != RoleName.ADMIN:
             raise ValidationError(_("User must have role 'admin' for AdminProfile."))
 
 
@@ -565,7 +566,7 @@ class Device(BaseModel):
         return f'{self.user.username} ({status})'
 
     class Meta(object):
-        ordering = ('-date_created',)
+        ordering = ('-created_at',)
         constraints = [
             models.UniqueConstraint(fields=['user', 'token'], name='unique_user_token')
         ]

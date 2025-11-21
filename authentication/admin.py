@@ -4,13 +4,13 @@ from .models import Identity, LoginLog
 
 @admin.register(Identity)
 class IdentityAdmin(admin.ModelAdmin):
-    list_display = ('user', 'device', 'status', 'token', 'expires_at', 'source_ip', 'date_created')
-    list_filter = ('status', 'expires_at', 'date_created')
+    list_display = ('user', 'device', 'status', 'token', 'expires_at', 'source_ip', 'created_at')
+    list_filter = ('status', 'expires_at', 'created_at')
     search_fields = (
         'user__id', 'user__username',  'user__reg_number', 'user__first_name', 'user__last_name',
         'user__phone_number', 'device__token', 'token', 'source_ip'
     )
-    readonly_fields = ('token', 'date_created', 'date_modified')
+    readonly_fields = ('token', 'created_at', 'updated_at')
 
     fieldsets = (
         ('User & Status', {
@@ -20,26 +20,26 @@ class IdentityAdmin(admin.ModelAdmin):
             'fields': ('token', 'expires_at', 'source_ip'),
         }),
         ('Timestamps', {
-            'fields': ('date_created', 'date_modified')
+            'fields': ('created_at', 'updated_at')
         }),
     )
 
-    ordering = ('-date_created',)
+    ordering = ('-created_at',)
 
 
 @admin.register(LoginLog)
 class LoginLogAdmin(admin.ModelAdmin):
-    list_display = ('user', 'date_created')
+    list_display = ('user', 'created_at')
     search_fields = ('user__username',)
-    ordering = ('-date_created',)
+    ordering = ('-created_at',)
 
     fieldsets = (
         ('User Info', {
             'fields': ('user',)
         }),
         ('Timestamps', {
-            'fields': ('date_created', 'date_modified')
+            'fields': ('created_at', 'updated_at')
         }),
     )
 
-    readonly_fields = ('date_created', 'date_modified')
+    readonly_fields = ('created_at', 'updated_at')

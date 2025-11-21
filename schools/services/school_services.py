@@ -1,5 +1,5 @@
 from django.db import transaction
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
 
 from base.services.base_services import BaseServices
 from schools.models import School, Branch, Classroom
@@ -33,7 +33,7 @@ class SchoolServices(BaseServices):
         try:
             return qs.get(id=school_id, is_active=True)
         except School.DoesNotExist:
-            raise ValidationError("School not found")
+            raise ObjectDoesNotExist("School not found")
 
     @classmethod
     @transaction.atomic
@@ -132,7 +132,7 @@ class SchoolServices(BaseServices):
         try:
             return qs.get(id=branch_id, is_active=True)
         except Branch.DoesNotExist:
-            raise ValidationError("Branch not found")
+            raise ObjectDoesNotExist("Branch not found")
 
     @classmethod
     @transaction.atomic
@@ -246,7 +246,7 @@ class SchoolServices(BaseServices):
         try:
             return qs.get(id=classroom_id, is_active=True)
         except Classroom.DoesNotExist:
-            raise ValidationError("Classroom not found")
+            raise ObjectDoesNotExist("Classroom not found")
 
     @classmethod
     @transaction.atomic

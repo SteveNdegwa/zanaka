@@ -60,7 +60,7 @@ class RequestLogAdmin(admin.ModelAdmin):
     ordering = ('-started_at',)
     readonly_fields = (
         'request_id', 'started_at', 'ended_at', 'time_taken', 'response_status',
-        'response_data', 'id', 'date_created', 'date_modified', 'synced'
+        'response_data', 'id', 'created_at', 'updated_at', 'synced'
     )
 
     fieldsets = (
@@ -86,7 +86,7 @@ class RequestLogAdmin(admin.ModelAdmin):
             'fields': ('exception_type', 'exception_message')
         }),
         ('Audit', {
-            'fields': ('id', 'date_created', 'date_modified', 'synced')
+            'fields': ('id', 'created_at', 'updated_at', 'synced')
         }),
     )
 
@@ -126,13 +126,13 @@ class RequestLogAdmin(admin.ModelAdmin):
 @admin.register(AuditLog)
 class AuditLogAdmin(admin.ModelAdmin):
     list_display = (
-        'date_created', 'summary', 'colored_severity', 'user', 'content_type',
+        'created_at', 'summary', 'colored_severity', 'user', 'content_type',
         'object_id', 'view_object_link', 'view_request_link'
     )
-    list_filter = ('event_type', 'severity', 'date_created', 'content_type')
+    list_filter = ('event_type', 'severity', 'created_at', 'content_type')
     search_fields = ('object_repr', 'object_id', 'user__username', 'request_id')
     readonly_fields = (
-        'id', 'date_created', 'date_modified', 'synced', 'request_id',
+        'id', 'created_at', 'updated_at', 'synced', 'request_id',
         'user', 'ip_address', 'user_agent', 'request_method', 'request_path',
         'activity_name', 'content_type', 'object_id', 'object_repr'
     )
@@ -157,7 +157,7 @@ class AuditLogAdmin(admin.ModelAdmin):
             'fields': ('metadata',)
         }),
         ('Audit', {
-            'fields': ('id', 'date_created', 'date_modified', 'synced')
+            'fields': ('id', 'created_at', 'updated_at', 'synced')
         }),
     )
 
@@ -228,7 +228,7 @@ class AuditConfigurationAdmin(admin.ModelAdmin):
     list_display = ('app_label', 'model_name', 'is_enabled', 'track_create', 'track_update', 'track_delete')
     list_filter = ('is_enabled', 'track_create', 'track_update', 'track_delete')
     search_fields = ('app_label', 'model_name')
-    readonly_fields = ('id', 'date_created', 'date_modified', 'synced')
+    readonly_fields = ('id', 'created_at', 'updated_at', 'synced')
     fieldsets = (
         ('Model Information', {
             'fields': ('app_label', 'model_name')
@@ -240,6 +240,6 @@ class AuditConfigurationAdmin(admin.ModelAdmin):
             'fields': ('retention_days',)
         }),
         ('Audit', {
-            'fields': ('id', 'date_created', 'date_modified', 'synced')
+            'fields': ('id', 'created_at', 'updated_at', 'synced')
         }),
     )

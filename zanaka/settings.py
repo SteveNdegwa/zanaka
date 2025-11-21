@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'audit',
     'authentication',
     'base',
+    'finances',
     'notifications',
     'otps',
     'schools',

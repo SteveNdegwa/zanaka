@@ -13,14 +13,14 @@ from api.models import (
 class ApiClientKeyInline(admin.TabularInline):
     model = ApiClientKey
     extra = 0
-    readonly_fields = ('fingerprint', 'date_created', 'date_modified')
+    readonly_fields = ('fingerprint', 'created_at', 'updated_at')
     fields = (
         'public_key',
         'fingerprint',
         'is_active',
         'expires_at',
-        'date_created',
-        'date_modified',
+        'created_at',
+        'updated_at',
     )
 
 
@@ -32,7 +32,7 @@ class ApiCallbackInline(admin.TabularInline):
         'require_authentication',
         'is_active',
     )
-    readonly_fields = ('date_created', 'date_modified')
+    readonly_fields = ('created_at', 'updated_at')
 
 
 @admin.register(ApiClient)
@@ -44,16 +44,16 @@ class ApiClientAdmin(admin.ModelAdmin):
         'signature_header_key',
         'require_signature_verification',
         'is_active',
-        'date_created',
+        'created_at',
     )
     search_fields = ('name', 'api_key')
     list_filter = ('is_active', 'signature_algorithm', 'require_signature_verification')
-    readonly_fields = ('api_key', 'date_created', 'date_modified')
+    readonly_fields = ('api_key', 'created_at', 'updated_at')
     inlines = [ApiClientKeyInline, ApiCallbackInline]
 
     fieldsets = (
         ('Basic Info', {
-            'fields': ('name', 'is_active', 'date_created', 'date_modified')
+            'fields': ('name', 'is_active', 'created_at', 'updated_at')
         }),
         ('API Settings', {
             'fields': ('api_key', 'allowed_ips', 'meta')
@@ -76,11 +76,11 @@ class ApiClientKeyAdmin(admin.ModelAdmin):
         'fingerprint',
         'is_active',
         'expires_at',
-        'date_created',
+        'created_at',
     )
     list_filter = ('is_active', 'expires_at')
     search_fields = ('fingerprint', 'client__name')
-    readonly_fields = ('date_created', 'date_modified')
+    readonly_fields = ('created_at', 'updated_at')
 
     fieldsets = (
         ('Key Info', {
@@ -90,23 +90,23 @@ class ApiClientKeyAdmin(admin.ModelAdmin):
             'fields': ('expires_at',)
         }),
         ('Timestamps', {
-            'fields': ('date_created', 'date_modified')
+            'fields': ('created_at', 'updated_at')
         }),
     )
 
-    ordering = ('-date_created',)
+    ordering = ('-created_at',)
 
 
 @admin.register(SystemKey)
 class SystemKeyAdmin(admin.ModelAdmin):
-    list_display = ('name', 'fingerprint', 'is_active', 'expires_at', 'date_created', 'date_modified')
+    list_display = ('name', 'fingerprint', 'is_active', 'expires_at', 'created_at', 'updated_at')
     search_fields = ('name', 'fingerprint')
     list_filter = ('is_active',)
-    readonly_fields = ('fingerprint', 'date_created', 'date_modified')
+    readonly_fields = ('fingerprint', 'created_at', 'updated_at')
 
     fieldsets = (
         ('Key Info', {
-            'fields': ('name', 'public_key', 'private_key', 'fingerprint', 'date_created', 'date_modified')
+            'fields': ('name', 'public_key', 'private_key', 'fingerprint', 'created_at', 'updated_at')
         }),
         ('Status', {
             'fields': ('is_active', 'expires_at')
@@ -121,11 +121,11 @@ class APICallbackAdmin(admin.ModelAdmin):
         'path',
         'require_authentication',
         'is_active',
-        'date_created',
+        'created_at',
     )
     list_filter = ('require_authentication', 'is_active')
     search_fields = ('path', 'client__name')
-    readonly_fields = ('date_created', 'date_modified')
+    readonly_fields = ('created_at', 'updated_at')
 
     fieldsets = (
         ('Callback Info', {
@@ -135,7 +135,7 @@ class APICallbackAdmin(admin.ModelAdmin):
             'fields': ('require_authentication',)
         }),
         ('Timestamps', {
-            'fields': ('date_created', 'date_modified')
+            'fields': ('created_at', 'updated_at')
         }),
     )
 
@@ -146,11 +146,11 @@ class APICallbackAdmin(admin.ModelAdmin):
 class RateLimitRuleAdmin(admin.ModelAdmin):
     list_display = (
         'name', 'scope', 'limit', 'period_count', 'period',
-        'is_active', 'priority', 'block_duration_minutes', 'date_created'
+        'is_active', 'priority', 'block_duration_minutes', 'created_at'
     )
-    list_filter = ('scope', 'period', 'is_active', 'date_created')
+    list_filter = ('scope', 'period', 'is_active', 'created_at')
     search_fields = ('name', 'endpoint_pattern', 'http_methods')
-    readonly_fields = ('date_created', 'date_modified')
+    readonly_fields = ('created_at', 'updated_at')
 
     fieldsets = (
         ('General', {
@@ -163,7 +163,7 @@ class RateLimitRuleAdmin(admin.ModelAdmin):
             'fields': ('endpoint_pattern', 'http_methods')
         }),
         ('Timestamps', {
-            'fields': ('date_created', 'date_modified')
+            'fields': ('created_at', 'updated_at')
         }),
     )
 
@@ -175,7 +175,7 @@ class RateLimitAttemptAdmin(admin.ModelAdmin):
     list_display = ('rule', 'key', 'endpoint', 'method', 'count', 'window_start', 'last_attempt')
     list_filter = ('method', 'window_start')
     search_fields = ('key', 'endpoint', 'rule__name')
-    readonly_fields = ('date_created', 'date_modified', 'last_attempt')
+    readonly_fields = ('created_at', 'updated_at', 'last_attempt')
 
     fieldsets = (
         ('Rule & Target', {
@@ -185,7 +185,7 @@ class RateLimitAttemptAdmin(admin.ModelAdmin):
             'fields': ('count', 'window_start', 'last_attempt')
         }),
         ('Timestamps', {
-            'fields': ('date_created', 'date_modified')
+            'fields': ('created_at', 'updated_at')
         }),
     )
 
@@ -194,10 +194,10 @@ class RateLimitAttemptAdmin(admin.ModelAdmin):
 
 @admin.register(RateLimitBlock)
 class RateLimitBlockAdmin(admin.ModelAdmin):
-    list_display = ('rule', 'key', 'blocked_until', 'date_created')
-    list_filter = ('blocked_until', 'date_created')
+    list_display = ('rule', 'key', 'blocked_until', 'created_at')
+    list_filter = ('blocked_until', 'created_at')
     search_fields = ('key', 'rule__name')
-    readonly_fields = ('date_created', 'date_modified')
+    readonly_fields = ('created_at', 'updated_at')
 
     fieldsets = (
         ('Rule & Target', {
@@ -207,8 +207,8 @@ class RateLimitBlockAdmin(admin.ModelAdmin):
             'fields': ('blocked_until',)
         }),
         ('Timestamps', {
-            'fields': ('date_created', 'date_modified')
+            'fields': ('created_at', 'updated_at')
         }),
     )
 
-    ordering = ('-date_modified',)
+    ordering = ('-updated_at',)

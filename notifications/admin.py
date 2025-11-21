@@ -4,10 +4,10 @@ from .models import Template, Provider, Notification
 
 @admin.register(Template)
 class TemplateAdmin(admin.ModelAdmin):
-    list_display = ("name", "notification_type", "subject", "is_active", "date_created")
+    list_display = ("name", "notification_type", "subject", "is_active", "created_at")
     list_filter = ("notification_type", "is_active")
     search_fields = ("name", "subject", "body")
-    ordering = ("-date_created",)
+    ordering = ("-created_at",)
 
     fieldsets = (
         ("Template Details", {
@@ -17,19 +17,19 @@ class TemplateAdmin(admin.ModelAdmin):
             "fields": ("is_active",),
         }),
         ("Metadata", {
-            "fields": ("date_created", "date_modified"),
+            "fields": ("created_at", "updated_at"),
             "classes": ("collapse",),
         }),
     )
-    readonly_fields = ("date_created", "date_modified")
+    readonly_fields = ("created_at", "updated_at")
 
 
 @admin.register(Provider)
 class ProviderAdmin(admin.ModelAdmin):
-    list_display = ("name", "notification_type", "priority", "is_active", "date_created")
+    list_display = ("name", "notification_type", "priority", "is_active", "created_at")
     list_filter = ("notification_type", "is_active")
     search_fields = ("name", "class_name")
-    ordering = ("-date_created",)
+    ordering = ("-created_at",)
 
     fieldsets = (
         ("Provider Details", {
@@ -42,22 +42,22 @@ class ProviderAdmin(admin.ModelAdmin):
             "fields": ("is_active",),
         }),
         ("Metadata", {
-            "fields": ("date_created", "date_modified"),
+            "fields": ("created_at", "updated_at"),
             "classes": ("collapse",),
         }),
     )
-    readonly_fields = ("date_created", "date_modified")
+    readonly_fields = ("created_at", "updated_at")
 
 
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
     list_display = (
         "id", "user", "notification_type", "provider", "status", "frequency",
-        "sent_time", "failure_message", "date_created"
+        "sent_time", "failure_message", "created_at"
     )
     list_filter = ("status", "frequency", "notification_type", "provider")
     search_fields = ("unique_key", "recipients", "context", "failure_message", "failure_traceback")
-    ordering = ("-date_created",)
+    ordering = ("-created_at",)
 
     fieldsets = (
         ("Notification Details", {
@@ -70,8 +70,8 @@ class NotificationAdmin(admin.ModelAdmin):
             "fields": ("unique_key", "sent_time", "status", "failure_message", "failure_traceback"),
         }),
         ("Metadata", {
-            "fields": ("date_created", "date_modified"),
+            "fields": ("created_at", "updated_at"),
             "classes": ("collapse",),
         }),
     )
-    readonly_fields = ("date_created", "date_modified", "failure_traceback")
+    readonly_fields = ("created_at", "updated_at", "failure_traceback")

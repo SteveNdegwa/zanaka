@@ -15,8 +15,8 @@ class BaseModel(AuditableMixin, models.Model):
         primary_key=True,
         verbose_name=_('Unique identifier')
     )
-    date_modified = models.DateTimeField(auto_now=True, verbose_name=_('Date modified'))
-    date_created = models.DateTimeField(auto_now_add=True, verbose_name=_('Date created'))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_('Date modified'))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Date created'))
     synced = models.BooleanField(
         default=False,
         verbose_name=_('Synced'),
