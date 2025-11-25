@@ -10,4 +10,10 @@ urlpatterns = [
     path("invoices/<str:invoice_id>/activate/", views.activate_invoice, name="activate-invoice"),
     path("invoices/<str:invoice_id>/", views.view_invoice, name="view-invoice"),
     path("invoices/", views.list_invoices, name="list-invoice"),
+
+    # Payment management
+    path("students/<str:student_id>/payments/create/", views.create_payment, name="create-payment"),
+    path("payments/<str:payment_id>/reverse/", views.reverse_payment, name="reverse-payment"),
+    path("payments/<str:payment_id>/", views.view_payment, name="view-payment"),
+    path("payments/", views.list_payments, name="list-payments"),
 ]

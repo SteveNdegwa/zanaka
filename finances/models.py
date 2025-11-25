@@ -2,10 +2,12 @@ from decimal import Decimal
 
 from django.db import models
 from django.core.validators import MinValueValidator
+from django.db.models import Sum
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from base.models import BaseModel, GenericBaseModel
+from finances.managers import InvoiceManager
 from schools.models import GradeLevel
 from users.models import User
 
@@ -107,24 +109,6 @@ class Invoice(BaseModel):
         verbose_name=_('Invoice Reference')
     )
     student = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name=_('Student'))
-    total_amount = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))],
-        verbose_name=_('Total Amount')
-    )
-    paid_amount = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=Decimal('0.00'),
-        verbose_name=_('Paid Amount')
-    )
-    balance = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=Decimal('0.00'),
-        verbose_name=_('Balance')
-    )
     priority = models.IntegerField(
         default=1,
         help_text=_("Lower number = higher priority (1 is highest)"),
@@ -155,6 +139,8 @@ class Invoice(BaseModel):
         verbose_name=_('Status')
     )
 
+    objects = InvoiceManager()
+
     class Meta:
         ordering = ['priority', '-created_at']
         indexes = [
@@ -179,27 +165,52 @@ class Invoice(BaseModel):
             new_seq = 1
         return f"INV-{today_str}-{new_seq:04d}"
 
-    def update_status(self):
-        if self.status == InvoiceStatus.CANCELLED:
-            return
+    @property
+    def total_amount(self):
+        return self.items.filter(
+            is_active=True
+        ).aggregate(
+            total=Sum('amount')
+        )['total'] or 0
 
-        if self.paid_amount == 0:
-            self.status = InvoiceStatus.PENDING
-        elif self.paid_amount >= self.total_amount:
-            self.status = InvoiceStatus.PAID
+    total_amount.fget.short_description = "Total Amount"
+
+    @property
+    def paid_amount(self):
+        return self.payment_allocations.filter(
+            is_active=True
+        ).aggregate(
+            total=Sum('allocated_amount')
+        )['total'] or 0
+
+    paid_amount.fget.short_description = "Paid Amount"
+
+    @property
+    def balance(self):
+        return self.total_amount - self.paid_amount
+
+    balance.fget.short_description = "Balance"
+
+    @property
+    def computed_status(self):
+        paid = self.paid_amount
+
+        if paid == 0:
+            temp_status = InvoiceStatus.PENDING
+        elif paid >= self.total_amount:
+            temp_status = InvoiceStatus.PAID
         else:
-            self.status = InvoiceStatus.PARTIALLY_PAID
+            temp_status = InvoiceStatus.PARTIALLY_PAID
 
-        if self.status != InvoiceStatus.PAID and timezone.now().date() > self.due_date:
-            self.status = InvoiceStatus.OVERDUE
+        if temp_status != InvoiceStatus.PAID and timezone.now().date() > self.due_date:
+            temp_status = InvoiceStatus.OVERDUE
+
+        return temp_status
 
     def save(self, *args, **kwargs):
         if not self.invoice_reference:
             self.invoice_reference = self.generate_invoice_reference()
-
-        self.balance = self.total_amount - self.paid_amount
-        self.update_status()
-
+        self.status = self.computed_status
         super().save(*args, **kwargs)
 
 
@@ -239,6 +250,10 @@ class InvoiceItem(BaseModel):
     def __str__(self):
         return f"{self.invoice.invoice_reference} - {self.fee_item.name}"
 
+    def save(self, *args, **kwargs):
+        self.amount = self.unit_price * self.quantity
+        super().save(*args, **kwargs)
+
 
 class Payment(BaseModel):
     payment_reference = models.CharField(
@@ -259,12 +274,6 @@ class Payment(BaseModel):
         decimal_places=2,
         validators=[MinValueValidator(Decimal('0.01'))],
         verbose_name=_('Amount')
-    )
-    utilized_amount = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=Decimal('0.00'),
-        verbose_name=_('Utilized Amount')
     )
 
     mpesa_receipt_number = models.CharField(max_length=100, blank=True, verbose_name=_('M-Pesa Receipt Number'))
@@ -320,15 +329,30 @@ class Payment(BaseModel):
             new_seq = 1
         return f"PAY-{today_str}-{new_seq:04d}"
 
-    def save(self, *args, **kwargs):
-        if not self.payment_reference:
-            self.payment_reference = self.generate_payment_reference()
+    @property
+    def utilized_amount(self):
+        return self.allocations.filter(
+            is_active=True
+        ).aggregate(
+            total=Sum('allocated_amount')
+        )['total'] or 0
 
-        super().save(*args, **kwargs)
+    utilized_amount.fget.short_description = "Utilized Amount"
 
     @property
     def unassigned_amount(self):
         return self.amount - self.utilized_amount
+
+    unassigned_amount.fget.short_description = "Unassigned Amount"
+
+    def save(self, *args, **kwargs):
+        if not self.payment_reference:
+            self.payment_reference = self.generate_payment_reference()
+
+        if self.status != PaymentStatus.COMPLETED:
+            self.allocations.filter(is_active=True).update(is_active=False)
+
+        super().save(*args, **kwargs)
 
 
 class MpesaTransaction(BaseModel):

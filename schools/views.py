@@ -43,7 +43,9 @@ def update_school(request, school_id):
 
     SchoolServices.update_school(school_id, **request.data)
 
-    return ResponseProvider.success(message="School updated successfully")
+    return ResponseProvider.success(
+        message="School updated successfully"
+    )
 
 
 @user_login_required(required_permission="can_delete_school")
@@ -53,7 +55,9 @@ def delete_school(request, school_id):
 
     SchoolServices.delete_school(school_id)
 
-    return ResponseProvider.success(message="School deleted successfully")
+    return ResponseProvider.success(
+        message="School deleted successfully"
+    )
 
 
 @user_login_required(required_permission="can_list_branches")
@@ -102,7 +106,9 @@ def update_branch(request, branch_id):
 
     SchoolServices.update_branch(branch_id, **request.data)
 
-    return ResponseProvider.success(message="Branch updated successfully")
+    return ResponseProvider.success(
+        message="Branch updated successfully"
+    )
 
 
 @user_login_required(required_permission="can_delete_branch")
@@ -112,7 +118,9 @@ def delete_branch(request, branch_id):
 
     SchoolServices.delete_branch(branch_id)
 
-    return ResponseProvider.success(message="Branch deleted successfully")
+    return ResponseProvider.success(
+        message="Branch deleted successfully"
+    )
 
 
 @user_login_required(required_permission="can_list_classrooms")
@@ -163,7 +171,9 @@ def update_classroom(request, classroom_id):
 
     SchoolServices.update_classroom(classroom_id, **request.data)
 
-    return ResponseProvider.success(message="Classroom updated successfully")
+    return ResponseProvider.success(
+        message="Classroom updated successfully"
+    )
 
 
 @user_login_required(required_permission="can_delete_classroom")
@@ -174,4 +184,6 @@ def delete_classroom(request, classroom_id):
 
     SchoolServices.delete_classroom(classroom_id)
 
-    return ResponseProvider.success(message="Classroom deleted successfully")
+    return ResponseProvider.success(
+        message="Classroom deleted successfully"
+    )

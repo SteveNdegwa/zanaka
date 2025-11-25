@@ -87,7 +87,6 @@ class InvoiceServices(BaseServices):
             notes=data.get("notes")
         )
 
-        total_amount = 0
         for item_data in data.get("invoice_items"):
             fee_item_id = item_data.get("fee_item_id")
             unit_price = item_data.get("unit_price")
@@ -125,11 +124,6 @@ class InvoiceServices(BaseServices):
                 unit_price=unit_price,
                 amount=amount
             )
-
-            total_amount += amount
-
-        invoice.total_amount = total_amount
-        invoice.save(update_fields=["total_amount"])
 
         return invoice
 
@@ -162,10 +156,11 @@ class InvoiceServices(BaseServices):
         invoice.priority = data.get("priority") or 1
         invoice.due_date = data.get("due_date")
         invoice.notes = data.get("notes")
+        invoice.updated_by = user
+        invoice.save(update_fields=["priority", "due_date", "notes", "updated_by"])
 
         InvoiceItem.objects.filter(invoice=invoice, is_active=True).update(is_active=False)
 
-        total_amount = 0
         for item_data in data.get("invoice_items"):
             fee_item_id = item_data.get("fee_item_id")
             unit_price = item_data.get("unit_price")
@@ -193,22 +188,13 @@ class InvoiceServices(BaseServices):
             elif not unit_price:
                 raise ValidationError("Fee item or unit price must be provided")
 
-            amount = unit_price * quantity
-
             InvoiceItem.objects.create(
                 invoice=invoice,
                 fee_item=fee_item,
                 description=description,
                 quantity=quantity,
                 unit_price=unit_price,
-                amount=amount
             )
-
-            total_amount += amount
-
-        invoice.total_amount = total_amount
-        invoice.updated_by = user
-        invoice.save(update_fields=["priority", "due_date", "notes", "total_amount", "updated_by"])
 
         return invoice
 
@@ -227,15 +213,11 @@ class InvoiceServices(BaseServices):
         """
         invoice = cls.get_invoice(invoice_id=invoice_id, select_for_update=True)
 
-        # Reverse payment allocations
-        allocations = PaymentAllocation.objects.filter(invoice=invoice, is_active=True)
-        for allocation in allocations:
-            payment = allocation.payment
-            payment.utilized_amount -= allocation.allocated_amount
-            payment.save(update_fields=["utilized_amount"])
-
-            allocation.is_active = False
-            allocation.save(update_fields=["is_active"])
+        # Deactivate payment allocations
+        PaymentAllocation.objects.filter(
+            invoice=invoice,
+            is_active=True
+        ).update(is_active=False)
 
         invoice.status = InvoiceStatus.CANCELLED
         invoice.updated_by = user
@@ -319,6 +301,8 @@ class InvoiceServices(BaseServices):
             "status": invoice.status,
             "created_at": invoice.created_at,
             "updated_at": invoice.updated_at,
+            "invoice_items": invoice_items,
+            "payments": payments
         }
 
     @classmethod
@@ -341,12 +325,18 @@ class InvoiceServices(BaseServices):
 
         search_term = filters.get("search_term")
         if search_term:
-            search_q = Q(invoice_reference__icontains=search_term)
-            search_q |= Q(student__id__icontains=search_term)
-            search_q |= Q(student__reg_number__icontains=search_term)
-            search_q |= Q(student__first_name__icontains=search_term)
-            search_q |= Q(student__last_name__icontains=search_term)
-            search_q |= Q(status__icontains=search_term)
+            fields = [
+                "invoice_reference",
+                "student__id",
+                "student__reg_number",
+                "student__first_name",
+                "student__last_name",
+                "status",
+            ]
+            search_q = Q()
+
+            for field in fields:
+                search_q |= Q(**{f"{field}__icontains": search_term})
 
             qs = qs.filter(search_q)
 

@@ -6,10 +6,10 @@ from utils.response_provider import ResponseProvider
 
 
 def login(request):
-    credential = request.data.get('credential', '')
-    password = request.data.get('password', '')
-    device_token = request.data.get('device_token', '')
-    source_ip = getattr(request, 'ip_address', None)
+    credential = request.data.get("credential", "")
+    password = request.data.get("password", "")
+    device_token = request.data.get("device_token", "")
+    source_ip = getattr(request, "ip_address", None)
 
     identity = AuthServices.login(
         credential=credential,
@@ -23,13 +23,13 @@ def login(request):
         user_profile = UserServices.get_user_profile(identity.user.id)
 
     return ResponseProvider.success(
-        message='Login successful',
+        message="Login successful",
         data={
-            'token': str(identity.token),
-            'status': identity.status,
-            'user_id': str(identity.user.id),
-            'expires_at': str(identity.expires_at),
-            'profile': user_profile,
+            "token": str(identity.token),
+            "status": identity.status,
+            "user_id": str(identity.user.id),
+            "expires_at": str(identity.expires_at),
+            "profile": user_profile,
         }
     )
 
@@ -37,4 +37,6 @@ def login(request):
 @user_login_required
 def logout(request):
     AuthServices.logout(request.user)
-    return ResponseProvider.success(message='Logout successful')
+    return ResponseProvider.success(
+        message="Logout successful"
+    )

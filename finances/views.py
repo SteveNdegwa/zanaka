@@ -1,4 +1,5 @@
 from finances.services.invoice_services import InvoiceServices
+from finances.services.payment_services import PaymentServices
 from utils.decorators.user_login_required import user_login_required
 from utils.response_provider import ResponseProvider
 
@@ -25,7 +26,9 @@ def update_invoice(request, invoice_id):
         **request.data
     )
 
-    return ResponseProvider.success(message="Invoice updated successfully")
+    return ResponseProvider.success(
+        message="Invoice updated successfully"
+    )
 
 
 @user_login_required(required_permission="can_cancel_invoice")
@@ -35,7 +38,9 @@ def cancel_invoice(request, invoice_id):
         invoice_id=invoice_id
     )
 
-    return ResponseProvider.success(message="Invoice cancelled successfully")
+    return ResponseProvider.success(
+        message="Invoice cancelled successfully"
+    )
 
 
 @user_login_required(required_permission="can_activate_invoice")
@@ -45,7 +50,9 @@ def activate_invoice(request, invoice_id):
         invoice_id=invoice_id
     )
 
-    return ResponseProvider.success(message="Invoice activated successfully")
+    return ResponseProvider.success(
+        message="Invoice activated successfully"
+    )
 
 
 @user_login_required(required_permission="can_view_invoice")
@@ -65,4 +72,47 @@ def list_invoices(request):
     return ResponseProvider.success(
         message="Invoices fetched successfully",
         data=invoices
+    )
+
+
+@user_login_required(required_permission="can_create_payment")
+def create_payment(request, student_id):
+    payment = PaymentServices.create_payment(
+        user=request.user,
+        student_id=student_id,
+        **request.data
+    )
+
+    return ResponseProvider.created(
+        message="Payment created successfully",
+        data={"id": str(payment.id)}
+    )
+
+
+@user_login_required(required_permission="can_reverse_payment")
+def reverse_payment(request, payment_id):
+    PaymentServices.reverse_payment(payment_id=payment_id)
+
+    return ResponseProvider.success(
+        message="Payment reversed successfully"
+    )
+
+
+@user_login_required(required_permission="can_view_payment")
+def view_payment(request, payment_id):
+    payment = PaymentServices.fetch_payment(payment_id=payment_id)
+
+    return ResponseProvider.success(
+        message="Payment fetched successfully",
+        data=payment
+    )
+
+
+@user_login_required(required_permission="can_list_payments")
+def list_payments(request):
+    payments = PaymentServices.filter_payments(**request.data)
+
+    return ResponseProvider.success(
+        message="Payments fetched successfully",
+        data=payments
     )

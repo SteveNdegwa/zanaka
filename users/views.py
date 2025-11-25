@@ -30,7 +30,9 @@ def update_user(request, user_id):
 
     UserServices.update_user(user_id, **request.data)
 
-    return ResponseProvider.success(message="User updated successfully")
+    return ResponseProvider.success(
+        message="User updated successfully"
+    )
 
 
 @user_login_required
@@ -43,7 +45,9 @@ def delete_user(request, user_id):
 
     UserServices.delete_user(user_id)
 
-    return ResponseProvider.success(message="User deleted successfully")
+    return ResponseProvider.success(
+        message="User deleted successfully"
+    )
 
 
 @user_login_required
@@ -80,13 +84,17 @@ def list_users(request):
 def forgot_password(request):
     credential = request.data.get("credential")
     UserServices.forgot_password(credential)
-    return ResponseProvider.success(message="Password reset successfully")
+    return ResponseProvider.success(
+        message="Password reset successfully"
+    )
 
 
 @user_login_required(required_permission="can_reset_password")
 def reset_password(request, user_id):
     UserServices.reset_password(user_id)
-    return ResponseProvider.success(message="Password reset successfully")
+    return ResponseProvider.success(
+        message="Password reset successfully"
+    )
 
 
 @user_login_required
@@ -101,7 +109,9 @@ def change_password(request):
         old_password=old_password
     )
 
-    return ResponseProvider.success(message="Password changed successfully")
+    return ResponseProvider.success(
+        message="Password changed successfully"
+    )
 
 
 @user_login_required(required_permission="can_add_guardian")
@@ -119,7 +129,9 @@ def remove_guardian(request, student_id, guardian_id):
         student_id=student_id,
         guardian_id=guardian_id
     )
-    return ResponseProvider.success(message="Guardian removed successfully")
+    return ResponseProvider.success(
+        message="Guardian removed successfully"
+    )
 
 
 @user_login_required(required_permission="can_list_guardians")

@@ -69,9 +69,8 @@ class GradeLevelFeeAdmin(admin.ModelAdmin):
 @admin.register(Invoice)
 class InvoiceAdmin(admin.ModelAdmin):
     list_display = (
-        'invoice_reference', 'student', 'status', 'priority',
-        'total_amount', 'paid_amount', 'balance',
-        'due_date', 'created_at'
+        'invoice_reference', 'student', 'status', 'priority', 'total_amount',
+        'paid_amount', 'balance', 'due_date', 'created_at'
     )
 
     list_filter = (
