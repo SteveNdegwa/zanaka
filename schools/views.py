@@ -5,7 +5,7 @@ from utils.response_provider import ResponseProvider
 from .services.school_services import SchoolServices
 
 
-@user_login_required(required_permission="can_list_schools")
+@user_login_required(required_permission="schools.list_schools")
 def list_schools(request):
     schools = SchoolServices.filter_schools(**request.data)
     return ResponseProvider.success(
@@ -14,7 +14,7 @@ def list_schools(request):
     )
 
 
-@user_login_required(required_permission="can_create_school")
+@user_login_required(required_permission="schools.create_school")
 def create_school(request):
     school = SchoolServices.create_school(**request.data)
     return ResponseProvider.created(
@@ -23,7 +23,7 @@ def create_school(request):
     )
 
 
-@user_login_required(required_permission="can_view_school")
+@user_login_required(required_permission="schools.view_school")
 def view_school(request, school_id):
     if school_id != request.user.branch.school.id:
         raise PermissionDenied()
@@ -36,7 +36,7 @@ def view_school(request, school_id):
     )
 
 
-@user_login_required(required_permission="can_update_school")
+@user_login_required(required_permission="schools.update_school")
 def update_school(request, school_id):
     if school_id != request.user.branch.school.id:
         raise PermissionDenied()
@@ -48,7 +48,7 @@ def update_school(request, school_id):
     )
 
 
-@user_login_required(required_permission="can_delete_school")
+@user_login_required(required_permission="schools.delete_school")
 def delete_school(request, school_id):
     if school_id != request.user.branch.school.id:
         raise PermissionDenied()
@@ -60,7 +60,7 @@ def delete_school(request, school_id):
     )
 
 
-@user_login_required(required_permission="can_list_branches")
+@user_login_required(required_permission="schools.list_branches")
 def list_branches(request, school_id):
     if school_id != request.user.branch.school.id:
         raise PermissionDenied()
@@ -73,7 +73,7 @@ def list_branches(request, school_id):
     )
 
 
-@user_login_required(required_permission="can_create_branch")
+@user_login_required(required_permission="schools.create_branch")
 def create_branch(request, school_id):
     if school_id != request.user.branch.school.id:
         raise PermissionDenied()
@@ -86,7 +86,7 @@ def create_branch(request, school_id):
     )
 
 
-@user_login_required(required_permission="can_view_branch")
+@user_login_required(required_permission="schools.view_branch")
 def view_branch(request, branch_id):
     if branch_id != request.user.branch.id:
         raise PermissionDenied()
@@ -99,7 +99,7 @@ def view_branch(request, branch_id):
     )
 
 
-@user_login_required(required_permission="can_update_branch")
+@user_login_required(required_permission="schools.update_branch")
 def update_branch(request, branch_id):
     if branch_id != request.user.branch.id:
         raise PermissionDenied()
@@ -111,7 +111,7 @@ def update_branch(request, branch_id):
     )
 
 
-@user_login_required(required_permission="can_delete_branch")
+@user_login_required(required_permission="schools.delete_branch")
 def delete_branch(request, branch_id):
     if branch_id != request.user.branch.id:
         raise PermissionDenied()
@@ -123,7 +123,7 @@ def delete_branch(request, branch_id):
     )
 
 
-@user_login_required(required_permission="can_list_classrooms")
+@user_login_required(required_permission="schools.list_classrooms")
 def list_classrooms(request, branch_id):
     if branch_id != request.user.branch.id:
         raise PermissionDenied()
@@ -136,7 +136,7 @@ def list_classrooms(request, branch_id):
     )
 
 
-@user_login_required(required_permission="can_create_classroom")
+@user_login_required(required_permission="schools.create_classroom")
 def create_classroom(request, branch_id):
     if branch_id != request.user.branch.id:
         raise PermissionDenied()
@@ -149,7 +149,7 @@ def create_classroom(request, branch_id):
     )
 
 
-@user_login_required(required_permission="can_view_classroom")
+@user_login_required(required_permission="schools.view_classroom")
 def view_classroom(request, classroom_id):
     classroom = SchoolServices.get_classroom(classroom_id)
     if classroom.branch.id != request.user.branch.id:
@@ -163,7 +163,7 @@ def view_classroom(request, classroom_id):
     )
 
 
-@user_login_required(required_permission="can_update_classroom")
+@user_login_required(required_permission="schools.update_classroom")
 def update_classroom(request, classroom_id):
     classroom = SchoolServices.get_classroom(classroom_id)
     if classroom.branch.id != request.user.branch.id:
@@ -176,7 +176,7 @@ def update_classroom(request, classroom_id):
     )
 
 
-@user_login_required(required_permission="can_delete_classroom")
+@user_login_required(required_permission="schools.delete_classroom")
 def delete_classroom(request, classroom_id):
     classroom = SchoolServices.get_classroom(classroom_id)
     if classroom.branch.id != request.user.branch.id:

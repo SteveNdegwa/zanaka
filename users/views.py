@@ -7,7 +7,7 @@ from .services.user_services import UserServices
 
 @user_login_required
 def create_user(request, role_name):
-    perm = f"can_create_{role_name.lower()}"
+    perm = f"users.create_{role_name.lower()}"
     if not request.user.has_permission(perm):
         raise PermissionDenied()
 
@@ -24,7 +24,7 @@ def create_user(request, role_name):
 def update_user(request, user_id):
     if user_id != request.user.id:
         user_to_update = UserServices.get_user(user_id)
-        perm = f"can_update_{user_to_update.role.name}"
+        perm = f"users.update_{user_to_update.role.name}"
         if not request.user.has_permission(perm):
             raise PermissionDenied()
 
@@ -39,7 +39,7 @@ def update_user(request, user_id):
 def delete_user(request, user_id):
     if user_id != request.user.id:
         user_to_update = UserServices.get_user(user_id)
-        perm = f"can_delete_{user_to_update.role.name}"
+        perm = f"users.delete_{user_to_update.role.name}"
         if not request.user.has_permission(perm):
             raise PermissionDenied()
 
@@ -54,7 +54,7 @@ def delete_user(request, user_id):
 def view_user(request, user_id):
     user_profile = UserServices.get_user_profile(user_id)
     if user_id != request.user.id:
-        perm = f"can_view_{user_profile.get("role_name")}"
+        perm = f"users.view_{user_profile.get("role_name")}"
         if not request.user.has_permission(perm):
             raise PermissionDenied()
 
@@ -65,10 +65,10 @@ def view_user(request, user_id):
 
 @user_login_required
 def list_users(request):
-    if not request.user.has_permission("can_list_all_users"):
+    if not request.user.has_permission("users.list_all_users"):
         if not "role_name" in request.data:
             raise PermissionDenied()
-        perm = f"can_list_{request.data.get("role_name")}s"
+        perm = f"users.list_{request.data.get("role_name")}s"
         if not request.user.has_permission(perm):
             raise PermissionDenied()
 
@@ -89,7 +89,7 @@ def forgot_password(request):
     )
 
 
-@user_login_required(required_permission="can_reset_password")
+@user_login_required(required_permission="users.reset_password")
 def reset_password(request, user_id):
     UserServices.reset_password(user_id)
     return ResponseProvider.success(
@@ -114,7 +114,7 @@ def change_password(request):
     )
 
 
-@user_login_required(required_permission="can_add_guardian")
+@user_login_required(required_permission="users.add_guardian")
 def add_guardian(request, student_id):
     guardian = UserServices.add_guardian_to_student(student_id=student_id, **request.data)
     return ResponseProvider.created(
@@ -123,7 +123,7 @@ def add_guardian(request, student_id):
     )
 
 
-@user_login_required(required_permission="can_remove_guardian")
+@user_login_required(required_permission="users.remove_guardian")
 def remove_guardian(request, student_id, guardian_id):
     UserServices.remove_guardian_from_student(
         student_id=student_id,
@@ -134,7 +134,7 @@ def remove_guardian(request, student_id, guardian_id):
     )
 
 
-@user_login_required(required_permission="can_list_guardians")
+@user_login_required(required_permission="users.list_guardians")
 def list_guardians(request, student_id):
     guardians = UserServices.filter_guardians_for_student(student_id, **request.data)
     return ResponseProvider.success(
