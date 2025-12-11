@@ -44,25 +44,25 @@ class VendorServices(BaseServices):
         :return: Created vendor instance.
         :rtype: Vendor
         """
-        required_fields = {"name"}
+        required_fields = {'name'}
         data = cls._sanitize_and_validate_data(data, required_fields=required_fields)
 
         vendor = Vendor.objects.create(
-            name=data["name"],
-            contact_person=data.get("contact_person", ""),
-            email=data.get("email", ""),
-            phone=data.get("phone", ""),
-            address=data.get("address", ""),
-            tax_id=data.get("tax_id", ""),
-            payment_terms=data.get("payment_terms", "net_30"),
-            mpesa_pochi_number=data.get("mpesa_pochi_number", ""),
-            mpesa_paybill_number=data.get("mpesa_paybill_number", ""),
-            mpesa_paybill_account=data.get("mpesa_paybill_account", ""),
-            mpesa_till_number=data.get("mpesa_till_number", ""),
-            bank_name=data.get("bank_name", ""),
-            bank_account=data.get("bank_account", ""),
-            bank_branch=data.get("bank_branch", ""),
-            notes=data.get("notes", ""),
+            name=data['name'],
+            contact_person=data.get('contact_person', ''),
+            email=data.get('email', ''),
+            phone=data.get('phone', ''),
+            address=data.get('address', ''),
+            tax_id=data.get('tax_id', ''),
+            payment_terms=data.get('payment_terms', 'net_30'),
+            mpesa_pochi_number=data.get('mpesa_pochi_number', ''),
+            mpesa_paybill_number=data.get('mpesa_paybill_number', ''),
+            mpesa_paybill_account=data.get('mpesa_paybill_account', ''),
+            mpesa_till_number=data.get('mpesa_till_number', ''),
+            bank_name=data.get('bank_name', ''),
+            bank_account=data.get('bank_account', ''),
+            bank_branch=data.get('bank_branch', ''),
+            notes=data.get('notes', ''),
             created_by=user
         )
 
@@ -85,67 +85,67 @@ class VendorServices(BaseServices):
         """
         vendor = cls.get_vendor(vendor_id, select_for_update=True)
 
-        update_fields = ["updated_by"]
+        update_fields = ['updated_by']
 
-        if "name" in data:
-            vendor.name = data["name"]
-            update_fields.append("name")
+        if 'name' in data:
+            vendor.name = data['name']
+            update_fields.append('name')
 
-        if "contact_person" in data:
-            vendor.contact_person = data["contact_person"]
-            update_fields.append("contact_person")
+        if 'contact_person' in data:
+            vendor.contact_person = data['contact_person']
+            update_fields.append('contact_person')
 
-        if "email" in data:
-            vendor.email = data["email"]
-            update_fields.append("email")
+        if 'email' in data:
+            vendor.email = data['email']
+            update_fields.append('email')
 
-        if "phone" in data:
-            vendor.phone = data["phone"]
-            update_fields.append("phone")
+        if 'phone' in data:
+            vendor.phone = data['phone']
+            update_fields.append('phone')
 
-        if "address" in data:
-            vendor.address = data["address"]
-            update_fields.append("address")
+        if 'address' in data:
+            vendor.address = data['address']
+            update_fields.append('address')
 
-        if "tax_id" in data:
-            vendor.tax_id = data["tax_id"]
-            update_fields.append("tax_id")
+        if 'tax_id' in data:
+            vendor.tax_id = data['tax_id']
+            update_fields.append('tax_id')
 
-        if "payment_terms" in data:
-            vendor.payment_terms = data["payment_terms"]
-            update_fields.append("payment_terms")
+        if 'payment_terms' in data:
+            vendor.payment_terms = data['payment_terms']
+            update_fields.append('payment_terms')
 
-        if "mpesa_pochi_number" in data:
-            vendor.mpesa_pochi_number = data["mpesa_pochi_number"]
-            update_fields.append("mpesa_pochi_number")
+        if 'mpesa_pochi_number' in data:
+            vendor.mpesa_pochi_number = data['mpesa_pochi_number']
+            update_fields.append('mpesa_pochi_number')
 
-        if "mpesa_paybill_number" in data:
-            vendor.mpesa_paybill_number = data["mpesa_paybill_number"]
-            update_fields.append("mpesa_paybill_number")
+        if 'mpesa_paybill_number' in data:
+            vendor.mpesa_paybill_number = data['mpesa_paybill_number']
+            update_fields.append('mpesa_paybill_number')
 
-        if "mpesa_paybill_account" in data:
-            vendor.mpesa_paybill_account = data["mpesa_paybill_account"]
-            update_fields.append("mpesa_paybill_account")
+        if 'mpesa_paybill_account' in data:
+            vendor.mpesa_paybill_account = data['mpesa_paybill_account']
+            update_fields.append('mpesa_paybill_account')
 
-        if "mpesa_till_number" in data:
-            vendor.mpesa_till_number = data["mpesa_till_number"]
-            update_fields.append("mpesa_till_number")
+        if 'mpesa_till_number' in data:
+            vendor.mpesa_till_number = data['mpesa_till_number']
+            update_fields.append('mpesa_till_number')
 
-        if "bank_name" in data:
-            vendor.bank_name = data["bank_name"]
-            update_fields.append("bank_name")
+        if 'bank_name' in data:
+            vendor.bank_name = data['bank_name']
+            update_fields.append('bank_name')
 
-        if "bank_account" in data:
-            vendor.bank_account = data["bank_account"]
-            update_fields.append("bank_account")
+        if 'bank_account' in data:
+            vendor.bank_account = data['bank_account']
+            update_fields.append('bank_account')
 
-        if "bank_branch" in data:
-            vendor.bank_branch = data["bank_branch"]
-            update_fields.append("bank_branch")
+        if 'bank_branch' in data:
+            vendor.bank_branch = data['bank_branch']
+            update_fields.append('bank_branch')
 
-        if "notes" in data:
-            vendor.notes = data["notes"]
-            update_fields.append("notes")
+        if 'notes' in data:
+            vendor.notes = data['notes']
+            update_fields.append('notes')
 
         vendor.updated_by = user
         vendor.save(update_fields=update_fields)
@@ -168,7 +168,7 @@ class VendorServices(BaseServices):
         vendor = cls.get_vendor(vendor_id, select_for_update=True)
         vendor.is_active = False
         vendor.updated_by = user
-        vendor.save(update_fields=["is_active", "updated_by"])
+        vendor.save(update_fields=['is_active', 'updated_by'])
         return vendor
 
     @classmethod
@@ -187,7 +187,7 @@ class VendorServices(BaseServices):
         vendor = cls.get_vendor(vendor_id, select_for_update=True)
         vendor.is_active = True
         vendor.updated_by = user
-        vendor.save(update_fields=["is_active", "updated_by"])
+        vendor.save(update_fields=['is_active', 'updated_by'])
         return vendor
 
     @classmethod
@@ -204,27 +204,27 @@ class VendorServices(BaseServices):
         current_year = timezone.now().year
 
         return {
-            "id": str(vendor.id),
-            "name": vendor.name,
-            "contact_person": vendor.contact_person,
-            "email": vendor.email,
-            "phone": vendor.phone,
-            "address": vendor.address,
-            "tax_id": vendor.tax_id,
-            "payment_terms": vendor.payment_terms,
-            "mpesa_pochi_number": vendor.mpesa_pochi_number,
-            "mpesa_paybill_number": vendor.mpesa_paybill_number,
-            "mpesa_paybill_account": vendor.mpesa_paybill_account,
-            "mpesa_till_number": vendor.mpesa_till_number,
-            "bank_name": vendor.bank_name,
-            "bank_account": vendor.bank_account,
-            "bank_branch": vendor.bank_branch,
-            "is_active": vendor.is_active,
-            "notes": vendor.notes,
-            "total_paid_current_year": vendor.get_total_paid(year=current_year),
-            "total_paid_all_time": vendor.get_total_paid(),
-            "created_at": vendor.created_at,
-            "updated_at": vendor.updated_at,
+            'id': str(vendor.id),
+            'name': vendor.name,
+            'contact_person': vendor.contact_person,
+            'email': vendor.email,
+            'phone': vendor.phone,
+            'address': vendor.address,
+            'tax_id': vendor.tax_id,
+            'payment_terms': vendor.payment_terms,
+            'mpesa_pochi_number': vendor.mpesa_pochi_number,
+            'mpesa_paybill_number': vendor.mpesa_paybill_number,
+            'mpesa_paybill_account': vendor.mpesa_paybill_account,
+            'mpesa_till_number': vendor.mpesa_till_number,
+            'bank_name': vendor.bank_name,
+            'bank_account': vendor.bank_account,
+            'bank_branch': vendor.bank_branch,
+            'is_active': vendor.is_active,
+            'notes': vendor.notes,
+            'total_paid_current_year': vendor.get_total_paid(year=current_year),
+            'total_paid_all_time': vendor.get_total_paid(),
+            'created_at': vendor.created_at,
+            'updated_at': vendor.updated_at,
         }
 
     @classmethod
@@ -244,13 +244,13 @@ class VendorServices(BaseServices):
 
         qs = Vendor.objects.filter(**cleaned_filters)
 
-        search_term = filters.get("search_term")
+        search_term = filters.get('search_term')
         if search_term:
-            fields = ["name", "contact_person", "email", "phone", "tax_id", "code"]
+            fields = ['name', 'contact_person', 'email', 'phone', 'tax_id', 'code']
             search_q = Q()
             for field in fields:
-                search_q |= Q(**{f"{field}__icontains": search_term})
+                search_q |= Q(**{f'{field}__icontains': search_term})
             qs = qs.filter(search_q)
 
-        vendor_ids = qs.values_list("id", flat=True)
+        vendor_ids = qs.values_list('id', flat=True)
         return [cls.fetch_vendor(vendor_id) for vendor_id in vendor_ids]

@@ -4,10 +4,11 @@ import traceback
 from datetime import datetime, timedelta
 from typing import Optional, List, Union, Dict, Type
 
-from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.utils import timezone
 
+from base.services.system_settings_cache import SystemSettingsCache
 from notifications.services.notification_types.base_notification import BaseNotification
 from notifications.services.notification_types.email_notification import EmailNotification
 from notifications.services.notification_types.sms_notification import SMSNotification
@@ -32,8 +33,8 @@ class NotificationServices:
     """
 
     NOTIFICATION_HANDLERS: Dict[str, Type[BaseNotification]] = {
-        "EMAIL": EmailNotification,
-        "SMS": SMSNotification,
+        'EMAIL': EmailNotification,
+        'SMS': SMSNotification,
     }
 
     @classmethod
@@ -53,14 +54,14 @@ class NotificationServices:
         """
         now = datetime.now()
         if frequency == NotificationFrequency.MONTHLY:
-            key_str = f"{user.id}_{key}_{now.year}_{now.month}"
+            key_str = f'{user.id}_{key}_{now.year}_{now.month}'
         elif frequency == NotificationFrequency.WEEKLY:
             y, w, _ = now.isocalendar()
-            key_str = f"{user.id}_{key}_{y}_{w}"
+            key_str = f'{user.id}_{key}_{y}_{w}'
         elif frequency == NotificationFrequency.DAILY:
-            key_str = f"{user.id}_{key}_{now.date()}"
+            key_str = f'{user.id}_{key}_{now.date()}'
         else:
-            key_str = f"{user.id}_{key}"
+            key_str = f'{user.id}_{key}'
         return hashlib.sha256(key_str.encode()).hexdigest()
 
     @classmethod
@@ -115,7 +116,7 @@ class NotificationServices:
         Sanitizes and normalizes recipient values by trimming whitespace,
         removing invalid entries, and formatting values where required.
 
-        :param notification_type: Type of notification ("email" or "sms").
+        :param notification_type: Type of notification ('email' or 'sms').
         :type notification_type: str
         :param recipients: A list or comma-separated string of recipients.
         :type recipients: Union[List[str], str]
@@ -124,13 +125,13 @@ class NotificationServices:
         """
         cleaned_recipients = set()
         if isinstance(recipients, str):
-            recipients = [recipient for recipient in recipients.split(",")]
+            recipients = [recipient for recipient in recipients.split(',')]
         for recipient in recipients:
             recipient = recipient.strip()
             if not recipient:
                 continue
-            if notification_type == "sms":
-                recipient = recipient.replace("+", "")
+            if notification_type == 'sms':
+                recipient = recipient.replace('+', '')
             cleaned_recipients.add(recipient)
         return list(cleaned_recipients)
 
@@ -148,7 +149,7 @@ class NotificationServices:
         notification_type_name = notification.notification_type
         notification_class = cls.NOTIFICATION_HANDLERS.get(notification_type_name)
         if not notification_class:
-            raise ValueError(f"Unsupported notification type: {notification_type_name}")
+            raise ValueError(f'Unsupported notification type: {notification_type_name}')
         return notification_class(notification)
 
     @classmethod
@@ -164,10 +165,11 @@ class NotificationServices:
         """
         provider_class = PROVIDER_CLASSES.get(provider.class_name, None)
         if provider_class is None:
-            raise ValueError(f"Unknown provider class: {provider.class_name}")
+            raise ValueError(f'Unknown provider class: {provider.class_name}')
         return provider_class(provider.config)
 
     @classmethod
+    @transaction.atomic
     def deliver_notification(cls, notification_id: str) -> None:
         """
         Delivers a notification by preparing content, validating providers,
@@ -188,7 +190,7 @@ class NotificationServices:
             active_providers = notification_handler.active_providers()
             if not active_providers.exists():
                 raise Exception(
-                    f"No active providers found for {notification.notification_type.name} notifications"
+                    f'No active providers found for {notification.notification_type.name} notifications'
                 )
 
             content = notification_handler.prepare_content()
@@ -197,7 +199,7 @@ class NotificationServices:
                 provider_class_instance = cls._get_provider_class_instance(provider)
 
                 if not provider_class_instance.validate_config():
-                    logger.warning(f"Invalid configuration for provider: {provider.name}")
+                    logger.warning(f'Invalid configuration for provider: {provider.name}')
                     continue
 
                 send_notification_state = provider_class_instance.send(
@@ -206,7 +208,7 @@ class NotificationServices:
                 )
 
                 if send_notification_state == NotificationStatus.FAILED:
-                    logger.warning(f"Send notification failed for provider: {provider.name}")
+                    logger.warning(f'Send notification failed for provider: {provider.name}')
                     continue
 
                 notification.status = send_notification_state
@@ -217,10 +219,10 @@ class NotificationServices:
 
                 return None
 
-            raise Exception("Notification not sent")
+            raise Exception('Notification not sent')
 
         except Exception as ex:
-            logger.exception(f"NotificationManagementService - _send_notification exception: {ex}")
+            logger.exception(f'NotificationManagementService - _send_notification exception: {ex}')
             if notification:
                 notification.status = NotificationStatus.FAILED
                 notification.failure_message = str(ex)
@@ -229,12 +231,13 @@ class NotificationServices:
             raise
 
     @classmethod
+    @transaction.atomic
     def send_notification(
             cls,
             user: Optional[User] = None,
             recipients: Optional[List[str]] = None,
             notification_type: str = NotificationType.EMAIL,
-            template_name: str = "default_email",
+            template_name: str = 'default_email',
             context: Optional[dict] = None,
             notification_key: Optional[str] = None,
             frequency: str = NotificationFrequency.ONCE,
@@ -247,7 +250,7 @@ class NotificationServices:
         :type user: Optional[User]
         :param recipients: Explicit list of recipients if user is not provided.
         :type recipients: Optional[List[str]]
-        :param notification_type: Notification type ("email" or "sms").
+        :param notification_type: Notification type ('email' or 'sms').
         :type notification_type: str
         :param template_name: The template name to render.
         :type template_name: str
@@ -261,16 +264,16 @@ class NotificationServices:
         :rtype: None
         """
         # Input validation
-        notification_type = notification_type.lower()
+        notification_type = notification_type.upper()
         if notification_type not in NotificationType.values:
-            raise ValidationError("Invalid notification type")
+            raise ValidationError('Invalid notification type')
 
-        frequency = frequency.lower()
+        frequency = frequency.upper()
         if frequency not in NotificationFrequency.values:
-            raise ValidationError("Invalid notification frequency")
+            raise ValidationError('Invalid notification frequency')
 
         if not user and not recipients:
-            raise ValidationError("Either user or recipients must be provided.")
+            raise ValidationError('Either user or recipients must be provided.')
 
         # Check for duplicate notifications
         unique_key = None
@@ -290,16 +293,16 @@ class NotificationServices:
 
         # If user is provided, determine recipients based on notification type
         if user:
-            field = "email" if notification_type == NotificationType.EMAIL else "phone_number"
+            field = 'email' if notification_type == NotificationType.EMAIL else 'phone_number'
             if not user.role.name == RoleName.STUDENT:
-                profile = getattr(user, f"{user.role.name}_profile")
+                profile = getattr(user, f'{str(user.role.name).lower()}_profile')
                 recipients = [getattr(profile, field)]
             else:
                 qs = StudentGuardian.objects.filter(
                     student=user,
                     is_active=True,
                     can_receive_reports=True
-                ).select_related( "guardian")
+                ).select_related( 'guardian')
                 recipients = [getattr(sg.guardian, field) for sg in qs]
 
         # Clean recipients list
@@ -308,7 +311,7 @@ class NotificationServices:
             notification_type=notification_type
         )
         if not recipients:
-            raise ValidationError("No valid recipients found.")
+            raise ValidationError('No valid recipients found.')
 
         # Validate template
         template = Template.objects.filter(
@@ -317,7 +320,7 @@ class NotificationServices:
             is_active=True
         ).first()
         if not template:
-            return None
+            raise ValidationError('Template not found or inactive.')
 
         # Create notification
         notification = Notification.objects.create(
@@ -331,7 +334,7 @@ class NotificationServices:
         )
 
         # Deliver notification
-        if settings.SEND_NOTIFICATIONS_ASYNC:
+        if SystemSettingsCache.get().send_notifications_async:
             from notifications.tasks import deliver_notification_task
             deliver_notification_task.delay(notification.id)
         else:

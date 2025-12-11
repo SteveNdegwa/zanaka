@@ -1,27 +1,29 @@
 import base64
 import binascii
-import logging
+import datetime
 import os
 from datetime import timedelta
-from typing import Optional
 
-from django.conf import settings
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from base.models import BaseModel
+from base.services.system_settings_cache import SystemSettingsCache
 
-logger = logging.getLogger(__name__)
+
+class IdentityStatus(models.TextChoices):
+    ACTIVATION_PENDING = 'ACTIVATION_PENDING', _('Activation Pending')
+    ACTIVE = 'ACTIVE', _('Active')
+    EXPIRED = 'EXPIRED', _('Expired')
 
 
 class Identity(BaseModel):
-    class Status(models.TextChoices):
-        ACTIVATION_PENDING = 'ACTIVATION_PENDING', _('Activation Pending')
-        ACTIVE = 'ACTIVE', _('Active')
-        EXPIRED = 'EXPIRED', _('Expired')
-
-    user = models.ForeignKey('users.User', on_delete=models.CASCADE, verbose_name=_('User'))
+    user = models.ForeignKey(
+        'users.User',
+        on_delete=models.CASCADE,
+        verbose_name=_('User')
+    )
     device = models.ForeignKey(
         'users.Device',
         null=True,
@@ -34,8 +36,8 @@ class Identity(BaseModel):
     source_ip = models.GenericIPAddressField(null=True, blank=True, verbose_name=_('Source IP'))
     status = models.CharField(
         max_length=20,
-        choices=Status.choices,
-        default=Status.ACTIVATION_PENDING,
+        choices=IdentityStatus.choices,
+        default=IdentityStatus.ACTIVATION_PENDING,
         verbose_name=_('Status')
     )
 
@@ -53,43 +55,25 @@ class Identity(BaseModel):
         return f'{self.user.username} - {self.status}'
 
     @staticmethod
-    def generate_token() -> Optional[str]:
-        try:
-            rand_part = binascii.hexlify(os.urandom(15)).decode()
-            timestamp = timezone.now().strftime('%Y%m%d%H%M%S%f')[:-3]
-            raw = f'{rand_part}{timestamp}'
-            return base64.urlsafe_b64encode(raw.encode()).decode()
-        except Exception as ex:
-            logger.exception('Identity.generate_token failed: %s', ex)
-            return None
+    def generate_token() -> str:
+        rand_part = binascii.hexlify(os.urandom(15)).decode()
+        timestamp = timezone.now().strftime('%Y%m%d%H%M%S%f')[:-3]
+        raw = f'{rand_part}{timestamp}'
+        return base64.urlsafe_b64encode(raw.encode()).decode()
 
-    def save(self, *args, **kwargs):
+    @property
+    def _expires_at(self) -> datetime.datetime:
+        token_validity_seconds = SystemSettingsCache.get().auth_token_validity_seconds
+        return timezone.now() + timedelta(seconds=token_validity_seconds)
+
+    def save(self, *args, **kwargs) -> None:
         if not self.token:
             self.token = self.generate_token()
         if not self.expires_at:
-            self.expires_at = timezone.now() + timedelta(
-                seconds=getattr(settings, 'TOKEN_VALIDITY_SECONDS', 3600)
-            )
+            self.expires_at = self._expires_at
         super().save(*args, **kwargs)
 
-    def extend(self):
-        try:
-            self.expires_at = timezone.now() + timedelta(
-                seconds=getattr(settings, 'TOKEN_VALIDITY_SECONDS', 3600)
-            )
-            self.save(update_fields=['expires_at'])
-        except Exception as ex:
-            logger.exception('Identity.extend failed: %s', ex)
-        return self
-
-
-class LoginLog(BaseModel):
-    user = models.ForeignKey('users.User', on_delete=models.CASCADE, verbose_name=_('User'))
-
-    class Meta:
-        ordering = ('-created_at',)
-        verbose_name = _('Login Log')
-        verbose_name_plural = _('Login Logs')
-
-    def __str__(self) -> str:
-        return f'{self.user.username} @ {self.created_at}'
+    def extend(self) -> None:
+        self.expires_at = self._expires_at
+        self.save(update_fields=['expires_at'])
+        self.user.update_last_activity()

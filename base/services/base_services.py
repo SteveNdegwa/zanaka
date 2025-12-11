@@ -10,7 +10,7 @@ class BaseServices:
     fk_mappings: dict[str, tuple[str, str]] = {}
     """
     Mapping of input field names to tuples of (model_path, resolved_field).
-    Example: {"school_id": ("app_label.School", "school")}
+    Example: {'school_id': ('app_label.School', 'school')}
     Specified in each child class if needed.
     """
 
@@ -58,7 +58,7 @@ class BaseServices:
             # Normalize strings
             if isinstance(v, str):
                 v = v.strip()
-                if v == "":
+                if v == '':
                     v = None
 
             # Apply type casting if specified
@@ -66,7 +66,7 @@ class BaseServices:
                 try:
                     v = field_types[k](v)
                 except (ValueError, TypeError):
-                    raise ValidationError(f"Invalid type for {k}, expected {field_types[k].__name__}")
+                    raise ValidationError(f'Invalid type for {k}, expected {field_types[k].__name__}')
 
             cleaned[k] = v
 
@@ -74,7 +74,7 @@ class BaseServices:
         if required_fields:
             missing = [f for f in required_fields if not cleaned.get(f)]
             if missing:
-                raise ValidationError(f"Missing required fields: {', '.join(missing)}")
+                raise ValidationError(f'Missing required fields: {', '.join(missing)}')
 
         # Resolve foreign keys
         if resolve_foreign_keys:
@@ -109,7 +109,7 @@ class BaseServices:
                 try:
                     resolved[attr] = model.objects.get(id=value, is_active=True)
                 except ObjectDoesNotExist:
-                    raise ValidationError(f"{attr} with id={value} does not exist or is inactive.")
+                    raise ValidationError(f'{attr} with id={value} does not exist or is inactive.')
             else:
                 resolved[field] = value
 

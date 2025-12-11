@@ -37,5 +37,5 @@ class SMSNotification(BaseNotification):
         phone_pattern = r'254\d{9}'
         for recipient in self.recipients:
             if not re.match(phone_pattern, recipient):
-                raise ValidationError("Invalid phone number")
+                raise ValidationError('Invalid phone number')
         return True

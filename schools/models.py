@@ -32,6 +32,9 @@ class School(GenericBaseModel):
         verbose_name_plural = _('Schools')
         ordering = ('name',)
 
+    def __str__(self):
+        return self.name
+
 
 class Branch(GenericBaseModel):
     school = models.ForeignKey(

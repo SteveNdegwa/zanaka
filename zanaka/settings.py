@@ -39,7 +39,7 @@ INSTALLED_APPS = [
     'api',
     'audit',
     'authentication',
-    'base',
+    'base.apps.BaseConfig',
     'finances',
     'notifications',
     'otps',
@@ -53,10 +53,9 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'api.middleware.gateway.GatewayControlMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # 'audit.middlewares.RequestContextMiddleware',
-    'api.middlewares.GatewayControlMiddleware',
 ]
 
 ROOT_URLCONF = 'zanaka.urls'
@@ -134,10 +133,3 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 SYSTEM_NAME = 'Zanaka'
-
-# Auth settings
-TWO_FACTOR_AUTHENTICATION_REQUIRED = True
-
-# Notification settings
-QUEUE_NOTIFICATIONS = False
-NOTIFY_BASE_URL = 'https://notify.rentwaveafrica.co.ke'

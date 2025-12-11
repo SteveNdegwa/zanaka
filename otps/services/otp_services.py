@@ -3,16 +3,17 @@ from datetime import timedelta
 from random import randint
 from typing import Optional
 
-from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from authentication.models import Identity
+from authentication.models import Identity, IdentityStatus
 from base.services.base_services import BaseServices
+from base.services.system_settings_cache import SystemSettingsCache
 from notifications.services.notification_services import NotificationServices
-from otps.models import OTP
+from otps.models import OTP, OTPPurpose, OTPDeliveryMethod
 from users.models import User
+from users.services.user_services import UserServices
 
 
 class OTPServices(BaseServices):
@@ -76,20 +77,20 @@ class OTPServices(BaseServices):
         :return: The generated and stored OTP instance.
         :rtype: OTP
         """
-        if delivery_method not in OTP.DeliveryMethods.values:
+        if delivery_method not in OTPDeliveryMethod.values:
             raise ValidationError('Invalid delivery method')
 
-        if purpose not in OTP.PurposeTypes.values:
+        if purpose not in OTPPurpose.values:
             raise ValidationError('Invalid purpose')
 
         identity = None
-        if purpose == OTP.PurposeTypes.TWO_FACTOR_AUTHENTICATION:
+        if purpose == OTPPurpose.TWO_FACTOR_AUTHENTICATION:
             if not token:
-                raise ValidationError('Token must be provided for 2FA purpose')
+                raise ValidationError('Please login again to proceed.')
 
             identity = Identity.objects.get(
                 token=token,
-                status=Identity.Status.ACTIVATION_PENDING,
+                status=IdentityStatus.ACTIVATION_PENDING,
             )
 
             user = identity.user
@@ -97,16 +98,16 @@ class OTPServices(BaseServices):
         if not contact:
             if not user:
                 raise ValidationError('Either contact or valid user must be provided.')
-            contact = user.email if delivery_method == 'EMAIL' else user.phone_number
-            if not contact:
-                raise Exception('Contact not found')
 
-        raw_code = cls._generate_raw_code(settings.OTP_LENGTH)
+
+        system_settings = SystemSettingsCache.get()
+
+        raw_code = cls._generate_raw_code(system_settings.otp_length)
         hashed_code = cls._hash_code(raw_code)
 
         expires_at = timezone.now() + timedelta(
-            seconds=settings.OTP_VALIDITY_SECONDS if purpose == OTP.PurposeTypes.TWO_FACTOR_AUTHENTICATION
-            else settings.ACTION_OTP_VALIDITY_SECONDS
+            seconds=system_settings.otp_validity_seconds if purpose == OTPPurpose.TWO_FACTOR_AUTHENTICATION
+            else system_settings.action_otp_validity_seconds
         )
 
         otp = OTP.objects.create(
@@ -124,7 +125,7 @@ class OTPServices(BaseServices):
         NotificationServices.send_notification(
             user=user,
             notification_type=delivery_method,
-            template_name=f'{delivery_method}_otp',
+            template_name=f'{delivery_method.lower()}_otp',
             recipients=recipients,
             context={'otp': raw_code},
         )
@@ -132,7 +133,6 @@ class OTPServices(BaseServices):
         return otp
 
     @classmethod
-    @transaction.atomic
     def verify_otp(
         cls,
         purpose: str,
@@ -140,7 +140,7 @@ class OTPServices(BaseServices):
         contact: Optional[str] = None,
         user: Optional[User] = None,
         token: Optional[str] = None,
-    ) -> OTP:
+    ) -> Optional[dict]:
         """
         Verify a provided OTP against the most recent unused OTP.
 
@@ -155,32 +155,31 @@ class OTPServices(BaseServices):
         :param token: Identity token, required for 2FA verification.
         :type token: str, optional
         :raises ValidationError: If the OTP is invalid, expired, already used, or exceeds retry limits.
-        :return: The verified OTP instance with updated status.
-        :rtype: OTP
+        :return: Optional data.
+        :rtype: Optional[dict]
         """
         if not code:
             raise ValidationError('OTP code must be provided')
 
-        if purpose not in OTP.PurposeTypes.values:
+        if purpose not in OTPPurpose.values:
             raise ValidationError('Invalid purpose')
 
         identity = None
-        if purpose == OTP.PurposeTypes.TWO_FACTOR_AUTHENTICATION:
+        if purpose == OTPPurpose.TWO_FACTOR_AUTHENTICATION:
             if not token:
                 raise ValidationError('Token must be provided for 2FA purpose')
 
             identity = Identity.objects.get(
                 token=token,
-                status=Identity.Status.ACTIVATION_PENDING
+                status=IdentityStatus.ACTIVATION_PENDING
             )
 
-        if not purpose == OTP.PurposeTypes.TWO_FACTOR_AUTHENTICATION:
+        if not purpose == OTPPurpose.TWO_FACTOR_AUTHENTICATION:
             if not user and not contact:
                 raise ValidationError('Either user_id or contact must be provided ')
 
         filter_params = {
             'is_used': False,
-            'expires_at__gte': timezone.now(),
             'purpose': purpose
         }
         if user:
@@ -193,9 +192,9 @@ class OTPServices(BaseServices):
         otp_queryset = OTP.objects.filter(**filter_params)
         otp = otp_queryset.order_by('-created_at').first()
         if not otp:
-            raise ValidationError('No valid OTP found.')
+            raise ValidationError('No valid OTP found. Please request a new OTP.')
 
-        if otp.retry_count >= settings.OTP_MAX_RETRIES:
+        if otp.retry_count >= SystemSettingsCache.get().max_otp_attempts:
             raise ValidationError('Too many incorrect attempts. Please request a new OTP.')
 
         if cls._hash_code(code) != otp.code:
@@ -203,11 +202,21 @@ class OTPServices(BaseServices):
             otp.save()
             raise ValidationError('Incorrect OTP.')
 
-        if otp.identity:
-            otp.identity.status = Identity.Status.ACTIVE
-            otp.identity.extend()
+        if otp.is_expired:
+            raise ValidationError('OTP has expired. Please request a new OTP.')
 
         otp.is_used = True
         otp.save()
 
-        return otp
+        if otp.identity:
+            otp.identity.status = IdentityStatus.ACTIVE
+            otp.identity.save(update_fields=['status'])
+            otp.identity.extend()
+
+            return {
+                'identity_status': otp.identity.status,
+                'user_profile': UserServices.get_user_profile(otp.identity.user.id),
+            }
+
+
+        return {}

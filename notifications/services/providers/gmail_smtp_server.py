@@ -21,7 +21,7 @@ class GmailSMTPServer(BaseProvider):
         required_keys = ['host', 'port', 'sender', 'password']
         missing_keys = [key for key in required_keys if key not in self.config]
         if missing_keys:
-            logger.error("GmailSMTPServer - Missing config keys: %s", ", ".join(missing_keys))
+            logger.error(f'GmailSMTPServer - Missing config keys: {', '.join(missing_keys)}')
             return False
         return True
 

@@ -14,10 +14,10 @@ class BelioSMSProvider(BaseProvider):
         """
         Ensures required configuration values are present.
         """
-        required_keys = ["api_key", "cookie", "url", "default_sms_service_id", "callback_url"]
+        required_keys = ['api_key', 'cookie', 'url', 'default_sms_service_id', 'callback_url']
         missing_keys = [key for key in required_keys if key not in self.config]
         if missing_keys:
-            logger.error("BelioSMSProvider - Missing config keys: %s", ", ".join(missing_keys))
+            logger.error(f'BelioSMSProvider - Missing config keys: {', '.join(missing_keys)}')
             return False
         return True
 
@@ -29,23 +29,23 @@ class BelioSMSProvider(BaseProvider):
         :param content: Dict with 'body' key containing the message.
         :return: ConfirmationPending if sms is queued successfully.
         """
-        message = content.get("body", "")
-        unique_identifier = content.get("unique_identifier", "")
+        message = content.get('body', '')
+        unique_identifier = content.get('unique_identifier', '')
 
-        url = self.config.get("url")
+        url = self.config.get('url')
         headers = {
-            "Authorization": self.config.get("api_key"),
-            "Cookie": self.config.get("cookie"),
-            "Content-Type": "application/json"
+            'Authorization': self.config.get('api_key'),
+            'Cookie': self.config.get('cookie'),
+            'Content-Type': 'application/json'
         }
 
         data = {
-            "smsServiceId": content.get("sms_service_id", self.config.get("default_sms_service_id")),
-            "message": message,
-            "addresses": recipients,
-            "deliveryReportRequest": {
-                "correlator": unique_identifier,
-                "callbackUrl": self.config.get("callback_url")
+            'smsServiceId': content.get('sms_service_id', self.config.get('default_sms_service_id')),
+            'message': message,
+            'addresses': recipients,
+            'deliveryReportRequest': {
+                'correlator': unique_identifier,
+                'callbackUrl': self.config.get('callback_url')
             }
         }
 

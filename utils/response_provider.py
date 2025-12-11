@@ -1,17 +1,22 @@
 from django.core.exceptions import ValidationError, ObjectDoesNotExist, PermissionDenied
+from django.core.serializers.json import DjangoJSONEncoder
 from django.http import JsonResponse
 
 
 class ResponseProvider:
     @staticmethod
     def _response(success: bool, code: str, message: str, status: int, data=None, error=None) -> JsonResponse:
-        return JsonResponse({
-            'success': success,
-            'code': code,
-            'message': message,
-            'data': data or {},
-            'error': error or '',
-        }, status=status)
+        return JsonResponse(
+            data={
+                'success': success,
+                'code': code,
+                'message': message,
+                'data': data or {},
+                'error': error or '',
+            },
+            status=status,
+            encoder=DjangoJSONEncoder
+        )
 
     @classmethod
     def handle_exception(cls, ex: Exception) -> JsonResponse:

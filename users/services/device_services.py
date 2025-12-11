@@ -1,6 +1,6 @@
 from django.utils import timezone
 
-from authentication.models import Identity
+from authentication.models import Identity, IdentityStatus
 from base.services.base_services import BaseServices
 from users.models import User, Device
 
@@ -26,8 +26,8 @@ class DeviceServices(BaseServices):
                     Identity.objects.filter(
                         user=previous_user,
                         device=device,
-                        status=Identity.Status.ACTIVE
-                    ).update(status=Identity.Status.EXPIRED)
+                        status=IdentityStatus.ACTIVE
+                    ).update(status=IdentityStatus.EXPIRED)
 
                 user.is_verified = False
                 user.save()
@@ -54,8 +54,8 @@ class DeviceServices(BaseServices):
 
         Identity.objects.filter(
             user=user,
-            status=Identity.Status.ACTIVE
-        ).exclude(device=device).update(status=Identity.Status.EXPIRED)
+            status=IdentityStatus.ACTIVE
+        ).exclude(device=device).update(status=IdentityStatus.EXPIRED)
 
         return device
 
@@ -70,8 +70,9 @@ class DeviceServices(BaseServices):
         device = Device.objects.get(id=device_id)
         if device.is_active:
             Identity.objects.filter(
-                device=device, status=Identity.Status.ACTIVE
-            ).update(status=Identity.Status.EXPIRED)
+                device=device,
+                status=IdentityStatus.ACTIVE
+            ).update(status=IdentityStatus.EXPIRED)
             device.is_active = False
-            device.save(update_fields=["is_active"])
+            device.save(update_fields=['is_active'])
         return device

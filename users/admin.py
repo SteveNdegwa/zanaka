@@ -1,274 +1,328 @@
 from django.contrib import admin
-from django.contrib.auth.models import Group
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
+from django.contrib import messages
 
 from .models import (
+    User,
     Role,
     Permission,
     RolePermission,
     ExtendedPermission,
-    User,
-    StudentGuardian,
     StudentProfile,
     GuardianProfile,
     TeacherProfile,
     ClerkProfile,
     AdminProfile,
-    Device,
+    StudentGuardian,
+    Device
 )
 
-admin.site.unregister(Group)
+
+class StudentProfileInline(admin.StackedInline):
+    model = StudentProfile
+    can_delete = False
+    fields = ('knec_number', 'nemis_number', 'classroom', 'medical_info', 'additional_info')
+    readonly_fields = ('knec_number', 'nemis_number')
+
+
+class GuardianProfileInline(admin.StackedInline):
+    model = GuardianProfile
+    can_delete = False
+    fields = ('id_number', 'phone_number', 'email', 'occupation')
+
+
+class TeacherProfileInline(admin.StackedInline):
+    model = TeacherProfile
+    can_delete = False
+    fields = ('tsc_number', 'id_number', 'phone_number', 'email')
+
+
+class ClerkProfileInline(admin.StackedInline):
+    model = ClerkProfile
+    can_delete = False
+    fields = ('id_number', 'phone_number', 'email')
+
+
+class AdminProfileInline(admin.StackedInline):
+    model = AdminProfile
+    can_delete = False
+    fields = ('id_number', 'phone_number', 'email')
+
+
+class StudentGuardianInline(admin.TabularInline):
+    model = StudentGuardian
+    fk_name = 'student'
+    extra = 1
+    fields = ('guardian', 'relationship', 'is_primary', 'can_receive_reports', 'is_active')
+    raw_id_fields = ('guardian',)
+
+
+
+class DeviceInline(admin.TabularInline):
+    model = Device
+    extra = 0
+    fields = ('token', 'last_activity', 'is_active')
+    readonly_fields = ('token', 'last_activity')
+
+
+AUDIT_FIELDSET = (
+    _('Audit'),
+    {
+        'fields': ('id', 'created_at', 'updated_at', 'synced'),
+        'classes': ('collapse',),
+    },
+)
+
+AUDIT_READONLY_FIELDS = ('id', 'created_at', 'updated_at', 'synced')
 
 
 @admin.register(Role)
 class RoleAdmin(admin.ModelAdmin):
+    list_display = ('name', 'can_login', 'is_active', 'created_at')
+    list_filter = ('can_login', 'is_active', 'created_at')
+    search_fields = ('name',)
+    readonly_fields = AUDIT_READONLY_FIELDS
+
     fieldsets = (
-        ('Role Info', {
-            'fields': ('name', 'description', 'can_login', 'is_active')
+        (_('Role Details'), {
+            'fields': ('name', 'can_login', 'is_active')
         }),
-        ('Audit', {
-            'fields': ('id', 'created_at', 'updated_at', 'synced')
-        }),
+        AUDIT_FIELDSET,
     )
-    list_display = ('name', 'can_login', 'is_active', 'created_at', 'updated_at')
-    list_filter = ('can_login', 'is_active', 'created_at', 'updated_at', 'synced')
-    search_fields = ('id', 'name', 'description')
-    readonly_fields = ('id', 'created_at', 'updated_at', 'synced')
-    ordering = ('-created_at',)
 
 
 @admin.register(Permission)
 class PermissionAdmin(admin.ModelAdmin):
+    list_display = ('name', 'is_active', 'created_at')
+    list_filter = ('is_active', 'created_at')
+    search_fields = ('name',)
+    readonly_fields = AUDIT_READONLY_FIELDS
+
     fieldsets = (
-        ('Permission Info', {
-            'fields': ('name', 'description', 'is_active')
+        (_('Permission'), {
+            'fields': ('name', 'is_active')
         }),
-        ('Audit', {
-            'fields': ('id', 'created_at', 'updated_at', 'synced')
-        }),
+        AUDIT_FIELDSET,
     )
-    list_display = ('name', 'is_active', 'created_at', 'updated_at')
-    list_filter = ('is_active', 'created_at', 'updated_at', 'synced')
-    search_fields = ('id', 'name', 'description')
-    readonly_fields = ('id', 'created_at', 'updated_at', 'synced')
-    ordering = ('-created_at',)
 
 
 @admin.register(RolePermission)
 class RolePermissionAdmin(admin.ModelAdmin):
+    list_display = ('role', 'permission', 'is_active')
+    list_filter = ('role', 'permission', 'is_active')
+    search_fields = ('role__name', 'permission__name')
+    readonly_fields = AUDIT_READONLY_FIELDS
+
     fieldsets = (
-        ('Role ↔ Permission Link', {
+        (_('Assignment'), {
             'fields': ('role', 'permission', 'is_active')
         }),
-        ('Audit', {
-            'fields': ('id', 'created_at', 'updated_at', 'synced')
-        }),
+        AUDIT_FIELDSET,
     )
-    list_display = ('role', 'permission', 'is_active', 'created_at', 'updated_at')
-    list_filter = ('role', 'permission', 'is_active', 'created_at', 'updated_at', 'synced')
-    search_fields = ('id', 'role__id', 'role__name', 'permission__id', 'permission__name')
-    readonly_fields = ('id', 'created_at', 'updated_at', 'synced')
-    ordering = ('-created_at',)
 
 
 @admin.register(ExtendedPermission)
 class ExtendedPermissionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'permission', 'is_active')
+    list_filter = ('permission', 'is_active')
+    search_fields = ('user__username', 'user__reg_number', 'permission__name')
+    raw_id_fields = ('user',)
+    readonly_fields = AUDIT_READONLY_FIELDS
+
     fieldsets = (
-        ('Extended Permission', {
+        (_('Extended Permission'), {
             'fields': ('user', 'permission', 'is_active')
         }),
-        ('Audit', {
-            'fields': ('id', 'created_at', 'updated_at', 'synced')
-        }),
+        AUDIT_FIELDSET,
     )
-    list_display = ('user', 'permission', 'is_active', 'created_at', 'updated_at')
-    list_filter = ('permission', 'is_active', 'created_at', 'updated_at', 'synced')
-    search_fields = (
-        'id', 'user__id', 'user__username', 'user__reg_number', 'user__first_name',
-        'user__last_name', 'permission__id', 'permission__name',
-    )
-    readonly_fields = ('id', 'created_at', 'updated_at', 'synced')
-    ordering = ('-created_at',)
 
 
 @admin.register(User)
-class UserAdmin(admin.ModelAdmin):
+class UserAdmin(BaseUserAdmin):
+    list_display = (
+        'username',
+        'reg_number',
+        'full_name_display',
+        'role',
+        'branch',
+        'is_staff',
+        'is_active',
+        'last_activity',
+        'force_pass_reset',
+    )
+    list_filter = (
+        'role',
+        'branch__school',
+        'branch',
+        'is_staff',
+        'is_active',
+        'force_pass_reset',
+        'last_activity',
+        'created_at',
+    )
+    search_fields = (
+        'id',
+        'username',
+        'reg_number',
+        'first_name',
+        'last_name',
+        'other_name',
+        'student_profile__knec_number',
+        'student_profile__nemis_number',
+        'student_profile__classroom__name',
+        'guardian_profile__phone_number',
+        'guardian_profile__email',
+        'guardian_profile__id_number',
+        'teacher_profile__phone_number',
+        'teacher_profile__email',
+        'teacher_profile__id_number',
+        'teacher_profile__tsc_number',
+        'clerk_profile__phone_number',
+        'clerk_profile__email',
+        'clerk_profile__id_number',
+        'admin_profile__phone_number',
+        'admin_profile__email',
+        'admin_profile__id_number',
+    )
+    readonly_fields =  AUDIT_READONLY_FIELDS + (
+        'username',
+        'reg_number',
+        'last_activity',
+    )
+    ordering = ('-created_at',)
+
     fieldsets = (
-        ('Unique Identifiers', {
-            'fields': ('id', 'username', 'reg_number')
+        (_('Account'), {
+            'fields': ('username', 'password')
         }),
-        ('Personal Info', {
-            'fields': ('first_name', 'other_name', 'last_name', 'date_of_birth', 'gender')
+        (_('Personal Info'), {
+            'fields': (
+                'first_name',
+                'last_name',
+                'other_name',
+                'date_of_birth',
+                'gender',
+                'reg_number',
+            )
         }),
-        ('School Info', {
-            'fields': ('role', 'branch')
+        (_('Role & Access'), {
+            'fields': ('role', 'branch', 'is_staff', 'is_active', 'force_pass_reset')
         }),
-        ('System Permissions', {
-            'fields': ('is_active', 'is_staff', 'is_superuser')
-        }),
-        ('Authentication', {
-            'fields': ('password',)
-        }),
-        ('Activity', {
+        (_('Activity'), {
             'fields': ('last_activity',)
         }),
-        ('Audit', {
-            'fields': ('created_at', 'updated_at', 'synced')
+        AUDIT_FIELDSET,
+    )
+
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': (
+                'first_name',
+                'last_name',
+                'other_name',
+                'role',
+                'branch',
+                'is_staff',
+                'is_active',
+            ),
         }),
     )
-    list_display = ('username', 'full_name', 'role', 'branch', 'is_active', 'created_at', 'updated_at')
-    list_filter = ('role', 'branch', 'is_active', 'is_staff', 'created_at', 'updated_at')
-    search_fields = ('id', 'username', 'first_name', 'last_name', 'other_name', 'reg_number')
-    readonly_fields = ('id', 'username', 'reg_number', 'created_at', 'updated_at', 'synced', 'last_activity')
-    ordering = ('-created_at',)
+
+    inlines = (
+        StudentProfileInline,
+        GuardianProfileInline,
+        TeacherProfileInline,
+        ClerkProfileInline,
+        AdminProfileInline,
+        StudentGuardianInline,
+        DeviceInline,
+    )
+
+    def full_name_display(self, obj):
+        return obj.full_name or '-'
+    full_name_display.short_description = _('Full Name')
+
+    def get_inlines(self, request, obj=None):
+        if not obj:
+            return []
+        inlines = []
+        if obj.role.name == 'STUDENT':
+            inlines.append(StudentProfileInline)
+            inlines.append(StudentGuardianInline)
+        elif obj.role.name == 'GUARDIAN':
+            inlines.append(GuardianProfileInline)
+        elif obj.role.name == 'TEACHER':
+            inlines.append(TeacherProfileInline)
+        elif obj.role.name == 'CLERK':
+            inlines.append(ClerkProfileInline)
+        elif obj.role.name == 'ADMIN':
+            inlines.append(AdminProfileInline)
+        inlines.append(DeviceInline)
+        return inlines
+
+    def reset_user_password(self, request, obj):
+        if not obj.role.can_login:
+            self.message_user(request, f'User {obj} cannot login. Password not reset.', messages.WARNING)
+            return
+        try:
+            obj.reset_password()
+            self.message_user(request, f'Password reset successfully for {obj}. Email sent.', messages.SUCCESS)
+        except Exception as e:
+            self.message_user(request, f'Failed to reset password: {e}', messages.ERROR)
+
+    def reset_password_action(self, request, queryset):
+        for user in queryset:
+            self.reset_user_password(request, user)
+    reset_password_action.short_description = _('Reset password & send email')
+
+    actions = [reset_password_action]
 
 
 @admin.register(StudentGuardian)
 class StudentGuardianAdmin(admin.ModelAdmin):
-    fieldsets = (
-        ('Student ↔ Guardian Link', {
-            'fields': ('student', 'guardian', 'relationship', 'is_primary', 'can_receive_reports', 'is_active')
-        }),
-        ('Audit', {
-            'fields': ('id', 'created_at', 'updated_at', 'synced')
-        }),
-    )
-    list_display = ('student', 'guardian', 'relationship', 'is_primary', 'is_active', 'created_at', 'updated_at')
-    list_filter = (
-        'relationship', 'is_primary', 'can_receive_reports', 'is_active',
-        'created_at', 'updated_at', 'synced'
-    )
+    list_display = ('student', 'guardian', 'relationship', 'is_primary', 'can_receive_reports', 'is_active')
+    list_filter = ('relationship', 'is_primary', 'can_receive_reports', 'is_active')
     search_fields = (
-        'student__user__id', 'student__user__reg_number', 'student__user__username',
-        'student__user__first_name', 'student__user__last_name', 'student__user__other_name',
-        'guardian__id', 'guardian__username', 'guardian__reg_number', 'guardian__first_name',
-        'guardian__last_name', 'guardian__other_name'
+        'student__username',
+        'student__reg_number',
+        'guardian__username',
+        'guardian__reg_number',
     )
     raw_id_fields = ('student', 'guardian')
-    readonly_fields = ('id', 'created_at', 'updated_at', 'synced')
-    ordering = ('-created_at',)
+    readonly_fields = AUDIT_READONLY_FIELDS
 
-
-@admin.register(StudentProfile)
-class StudentProfileAdmin(admin.ModelAdmin):
     fieldsets = (
-        ('Student Info', {
-            'fields': ('user', 'classroom', 'knec_number', 'nemis_number')
+        (_('Relationship'), {
+            'fields': ('student', 'guardian', 'relationship', 'is_primary', 'can_receive_reports')
         }),
-        ('Additional Info', {
-            'fields': ('medical_info', 'additional_info')
+        (_('Status'), {
+            'fields': ('is_active',)
         }),
-        ('Audit', {
-            'fields': ('id', 'created_at', 'updated_at', 'synced')
-        }),
+        AUDIT_FIELDSET,
     )
-    list_display = ('user', 'classroom', 'knec_number', 'nemis_number', 'created_at', 'updated_at')
-    list_filter = ('classroom', 'created_at', 'updated_at', 'synced')
-    search_fields = (
-        'id', 'user__id', 'user__username', 'user__reg_number', 'user__first_name',
-        'user__last_name', 'user__other_name', 'knec_number', 'nemis_number'
-    )
-    readonly_fields = ('id', 'created_at', 'updated_at', 'synced')
-    ordering = ('-created_at',)
-
-
-@admin.register(GuardianProfile)
-class GuardianProfileAdmin(admin.ModelAdmin):
-    fieldsets = (
-        ('Guardian Info', {
-            'fields': ('user', 'id_number', 'phone_number', 'email', 'occupation')
-        }),
-        ('Audit', {
-            'fields': ('id', 'created_at', 'updated_at', 'synced')
-        }),
-    )
-    list_display = ('user', 'id_number', 'phone_number', 'email', 'occupation', 'created_at', 'updated_at')
-    list_filter = ('created_at', 'updated_at', 'synced')
-    search_fields = (
-        'id', 'user__id', 'user__username', 'user__reg_number', 'user__first_name',
-        'user__last_name', 'user__other_name', 'id_number', 'phone_number', 'email'
-    )
-    readonly_fields = ('id', 'created_at', 'updated_at', 'synced')
-    ordering = ('-created_at',)
-
-
-@admin.register(TeacherProfile)
-class TeacherProfileAdmin(admin.ModelAdmin):
-    fieldsets = (
-        ('Teacher Info', {
-            'fields': ('user', 'tsc_number', 'id_number', 'phone_number', 'email')
-        }),
-        ('Audit', {
-            'fields': ('id', 'created_at', 'updated_at', 'synced')
-        }),
-    )
-    list_display = ('user', 'tsc_number', 'id_number', 'phone_number', 'email', 'created_at', 'updated_at')
-    list_filter = ('created_at', 'updated_at', 'synced')
-    search_fields = (
-        'id', 'user__id', 'user__username', 'user__reg_number', 'user__first_name', 'user__last_name',
-        'user__other_name', 'tsc_number', 'id_number', 'phone_number', 'email',
-    )
-    readonly_fields = ('id', 'created_at', 'updated_at', 'synced')
-    ordering = ('-created_at',)
-
-
-@admin.register(ClerkProfile)
-class ClerkProfileAdmin(admin.ModelAdmin):
-    fieldsets = (
-        ('Clerk Info', {
-            'fields': ('user', 'id_number', 'phone_number', 'email')
-        }),
-        ('Audit', {
-            'fields': ('id', 'created_at', 'updated_at', 'synced')
-        }),
-    )
-    list_display = ('user', 'id_number', 'phone_number', 'email', 'created_at', 'updated_at')
-    list_filter = ('created_at', 'updated_at', 'synced')
-    search_fields = (
-        'id', 'user__id', 'user__username', 'user__reg_number', 'user__first_name', 'user__last_name',
-        'user__other_name', 'id_number', 'phone_number', 'email'
-    )
-    readonly_fields = ('id', 'created_at', 'updated_at', 'synced')
-    ordering = ('-created_at',)
-
-
-@admin.register(AdminProfile)
-class AdminProfileAdmin(admin.ModelAdmin):
-    fieldsets = (
-        ('Admin Info', {
-            'fields': ('user', 'id_number', 'phone_number', 'email')
-        }),
-        ('Audit', {
-            'fields': ('id', 'created_at', 'updated_at', 'synced')
-        }),
-    )
-    list_display = ('user', 'id_number', 'phone_number', 'email', 'created_at', 'updated_at')
-    list_filter = ('created_at', 'updated_at', 'synced')
-    search_fields = (
-        'id', 'user__id', 'user__username', 'user__reg_number', 'user__first_name', 'user__last_name',
-        'user__other_name', 'id_number', 'phone_number', 'email'
-    )
-    readonly_fields = ('id', 'created_at', 'updated_at', 'synced')
-    ordering = ('-created_at',)
 
 
 @admin.register(Device)
 class DeviceAdmin(admin.ModelAdmin):
+    list_display = ('user', 'token_preview', 'last_activity', 'is_active')
+    list_filter = ('is_active', 'last_activity')
+    search_fields = ('user__username', 'user__reg_number', 'token')
+    readonly_fields = AUDIT_READONLY_FIELDS + ('token', 'last_activity')
+
     fieldsets = (
-        ('Device Info', {
-            'fields': ('user', 'token', 'is_active')
+        (_('Device Info'), {
+            'fields': ('user', 'token', 'last_activity', 'is_active')
         }),
-        ('Activity', {
-            'fields': ('last_activity',)
-        }),
-        ('Audit', {
-            'fields': ('id', 'created_at', 'updated_at', 'synced')
-        }),
+        AUDIT_FIELDSET,
     )
-    list_display = ('user', 'token', 'is_active', 'last_activity', 'created_at', 'updated_at')
-    list_filter = ('is_active', 'created_at', 'updated_at', 'synced')
-    search_fields = (
-        'token', 'user__username', 'user__id_number', 'user__phone_number',
-        'user__email', 'user__first_name', 'user__last_name',
-    )
-    readonly_fields = ('id', 'last_activity', 'created_at', 'updated_at', 'synced')
-    ordering = ('-created_at',)
+
+    def token_preview(self, obj):
+        return format_html(
+            '<code style="font-size:90%;">{}</code>',
+            obj.token[:40] + "..." if len(obj.token) > 40 else obj.token
+        )
+
+    token_preview.short_description = _('Token')

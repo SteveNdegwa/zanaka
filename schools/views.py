@@ -1,156 +1,158 @@
 from django.core.exceptions import PermissionDenied
+from django.http import JsonResponse
 
 from utils.decorators.user_login_required import user_login_required
+from utils.extended_request import ExtendedRequest
 from utils.response_provider import ResponseProvider
 from .services.school_services import SchoolServices
 
 
-@user_login_required(required_permission="schools.list_schools")
-def list_schools(request):
+@user_login_required(required_permission='schools.list_schools')
+def list_schools(request: ExtendedRequest) -> JsonResponse:
     schools = SchoolServices.filter_schools(**request.data)
     return ResponseProvider.success(
-        message="Schools fetched successfully",
+        message='Schools fetched successfully',
         data=schools
     )
 
 
-@user_login_required(required_permission="schools.create_school")
-def create_school(request):
+@user_login_required(required_permission='schools.create_school')
+def create_school(request: ExtendedRequest) -> JsonResponse:
     school = SchoolServices.create_school(**request.data)
     return ResponseProvider.created(
-        message="School created successfully",
-        data={"id": str(school.id)}
+        message='School created successfully',
+        data={'id': str(school.id)}
     )
 
 
-@user_login_required(required_permission="schools.view_school")
-def view_school(request, school_id):
+@user_login_required(required_permission='schools.view_school')
+def view_school(request: ExtendedRequest, school_id: str) -> JsonResponse:
     if school_id != request.user.branch.school.id:
         raise PermissionDenied()
 
     school = SchoolServices.get_school_profile(school_id)
 
     return ResponseProvider.success(
-        message="School fetched successfully",
+        message='School fetched successfully',
         data=school
     )
 
 
-@user_login_required(required_permission="schools.update_school")
-def update_school(request, school_id):
+@user_login_required(required_permission='schools.update_school')
+def update_school(request: ExtendedRequest, school_id: str) -> JsonResponse:
     if school_id != request.user.branch.school.id:
         raise PermissionDenied()
 
     SchoolServices.update_school(school_id, **request.data)
 
     return ResponseProvider.success(
-        message="School updated successfully"
+        message='School updated successfully'
     )
 
 
-@user_login_required(required_permission="schools.delete_school")
-def delete_school(request, school_id):
+@user_login_required(required_permission='schools.delete_school')
+def delete_school(request: ExtendedRequest, school_id: str) -> JsonResponse:
     if school_id != request.user.branch.school.id:
         raise PermissionDenied()
 
     SchoolServices.delete_school(school_id)
 
     return ResponseProvider.success(
-        message="School deleted successfully"
+        message='School deleted successfully'
     )
 
 
-@user_login_required(required_permission="schools.list_branches")
-def list_branches(request, school_id):
+@user_login_required(required_permission='schools.list_branches')
+def list_branches(request: ExtendedRequest, school_id: str) -> JsonResponse:
     if school_id != request.user.branch.school.id:
         raise PermissionDenied()
 
     branches = SchoolServices.filter_branches(school_id, **request.data)
 
     return ResponseProvider.success(
-        message="Branches fetched successfully",
+        message='Branches fetched successfully',
         data=branches
     )
 
 
-@user_login_required(required_permission="schools.create_branch")
-def create_branch(request, school_id):
+@user_login_required(required_permission='schools.create_branch')
+def create_branch(request: ExtendedRequest, school_id: str) -> JsonResponse:
     if school_id != request.user.branch.school.id:
         raise PermissionDenied()
 
     branch = SchoolServices.create_branch(school_id, **request.data)
 
     return ResponseProvider.created(
-        message="Branch created successfully",
-        data={"id": str(branch.id)}
+        message='Branch created successfully',
+        data={'id': str(branch.id)}
     )
 
 
-@user_login_required(required_permission="schools.view_branch")
-def view_branch(request, branch_id):
+@user_login_required(required_permission='schools.view_branch')
+def view_branch(request: ExtendedRequest, branch_id: str) -> JsonResponse:
     if branch_id != request.user.branch.id:
         raise PermissionDenied()
 
     branch = SchoolServices.get_branch_profile(branch_id)
 
     return ResponseProvider.success(
-        message="Branch fetched successfully",
+        message='Branch fetched successfully',
         data=branch
     )
 
 
-@user_login_required(required_permission="schools.update_branch")
-def update_branch(request, branch_id):
+@user_login_required(required_permission='schools.update_branch')
+def update_branch(request: ExtendedRequest, branch_id: str) -> JsonResponse:
     if branch_id != request.user.branch.id:
         raise PermissionDenied()
 
     SchoolServices.update_branch(branch_id, **request.data)
 
     return ResponseProvider.success(
-        message="Branch updated successfully"
+        message='Branch updated successfully'
     )
 
 
-@user_login_required(required_permission="schools.delete_branch")
-def delete_branch(request, branch_id):
+@user_login_required(required_permission='schools.delete_branch')
+def delete_branch(request: ExtendedRequest, branch_id: str) -> JsonResponse:
     if branch_id != request.user.branch.id:
         raise PermissionDenied()
 
     SchoolServices.delete_branch(branch_id)
 
     return ResponseProvider.success(
-        message="Branch deleted successfully"
+        message='Branch deleted successfully'
     )
 
 
-@user_login_required(required_permission="schools.list_classrooms")
-def list_classrooms(request, branch_id):
+@user_login_required(required_permission='schools.list_classrooms')
+def list_classrooms(request: ExtendedRequest, branch_id: str) -> JsonResponse:
     if branch_id != request.user.branch.id:
         raise PermissionDenied()
 
     classrooms = SchoolServices.filter_classrooms(branch_id, **request.data)
 
     return ResponseProvider.success(
-        message="Classrooms fetched successfully",
+        message='Classrooms fetched successfully',
         data=classrooms
     )
 
 
-@user_login_required(required_permission="schools.create_classroom")
-def create_classroom(request, branch_id):
+@user_login_required(required_permission='schools.create_classroom')
+def create_classroom(request: ExtendedRequest, branch_id: str) -> JsonResponse:
     if branch_id != request.user.branch.id:
         raise PermissionDenied()
 
     classroom = SchoolServices.create_classroom(branch_id, **request.data)
 
     return ResponseProvider.created(
-        message="Classroom created successfully",
-        data={"id": str(classroom.id)}
+        message='Classroom created successfully',
+        data={'id': str(classroom.id)}
     )
 
 
-@user_login_required(required_permission="schools.view_classroom")
-def view_classroom(request, classroom_id):
+@user_login_required(required_permission='schools.view_classroom')
+def view_classroom(request: ExtendedRequest, classroom_id: str) -> JsonResponse:
     classroom = SchoolServices.get_classroom(classroom_id)
     if classroom.branch.id != request.user.branch.id:
         raise PermissionDenied()
@@ -158,13 +160,13 @@ def view_classroom(request, classroom_id):
     classroom = SchoolServices.get_classroom_profile(classroom_id)
 
     return ResponseProvider.success(
-        message="Classroom fetched successfully",
+        message='Classroom fetched successfully',
         data=classroom
     )
 
 
-@user_login_required(required_permission="schools.update_classroom")
-def update_classroom(request, classroom_id):
+@user_login_required(required_permission='schools.update_classroom')
+def update_classroom(request: ExtendedRequest, classroom_id: str) -> JsonResponse:
     classroom = SchoolServices.get_classroom(classroom_id)
     if classroom.branch.id != request.user.branch.id:
         raise PermissionDenied()
@@ -172,12 +174,12 @@ def update_classroom(request, classroom_id):
     SchoolServices.update_classroom(classroom_id, **request.data)
 
     return ResponseProvider.success(
-        message="Classroom updated successfully"
+        message='Classroom updated successfully'
     )
 
 
-@user_login_required(required_permission="schools.delete_classroom")
-def delete_classroom(request, classroom_id):
+@user_login_required(required_permission='schools.delete_classroom')
+def delete_classroom(request: ExtendedRequest, classroom_id: str) -> JsonResponse:
     classroom = SchoolServices.get_classroom(classroom_id)
     if classroom.branch.id != request.user.branch.id:
         raise PermissionDenied()
@@ -185,5 +187,5 @@ def delete_classroom(request, classroom_id):
     SchoolServices.delete_classroom(classroom_id)
 
     return ResponseProvider.success(
-        message="Classroom deleted successfully"
+        message='Classroom deleted successfully'
     )

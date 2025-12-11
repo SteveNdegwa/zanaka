@@ -13,98 +13,98 @@ from users.models import User, RoleName
 
 
 class FeeItemCategory(models.TextChoices):
-    TUITION = 'tuition', _('Tuition Fees')
-    TRANSPORT = 'transport', _('Transport Fees')
-    ACTIVITY = 'activity', _('Activity Fees')
-    UNIFORM = 'uniform', _('Uniform')
-    OTHER = 'other', _('Other')
+    TUITION = 'TUITION', _('Tuition Fees')
+    TRANSPORT = 'TRANSPORT', _('Transport Fees')
+    ACTIVITY = 'ACTIVITY', _('Activity Fees')
+    UNIFORM = 'UNIFORM', _('Uniform')
+    OTHER = 'OTHER', _('Other')
 
 
 class Term(models.TextChoices):
-    TERM_1 = 'term_1', _('Term 1')
-    TERM_2 = 'term_2', _('Term 2')
-    TERM_3 = 'term_3', _('Term 3')
+    TERM_1 = 'TERM_1', _('Term 1')
+    TERM_2 = 'TERM_2', _('Term 2')
+    TERM_3 = 'TERM_3', _('Term 3')
 
 
 class InvoiceStatus(models.TextChoices):
-    DRAFT = 'draft', _('Draft')
-    PENDING = 'pending', _('Pending')
-    PARTIALLY_PAID = 'partially_paid', _('Partially Paid')
-    PAID = 'paid', _('Paid')
-    OVERDUE = 'overdue', _('Overdue')
-    CANCELLED = 'cancelled', _('Cancelled')
+    DRAFT = 'DRAFT', _('Draft')
+    PENDING = 'PENDING', _('Pending')
+    PARTIALLY_PAID = 'PARTIALLY_PAID', _('Partially Paid')
+    PAID = 'PAID', _('Paid')
+    OVERDUE = 'OVERDUE', _('Overdue')
+    CANCELLED = 'CANCELLED', _('Cancelled')
 
 
 class PaymentMethod(models.TextChoices):
-    MPESA = 'mpesa', _('M-Pesa')
-    BANK = 'bank', _('Bank Transfer')
-    CASH = 'cash', _('Cash')
-    CHEQUE = 'cheque', _('Cheque')
-    CARD = 'card', _('Card')
+    MPESA = 'MPESA', _('M-Pesa')
+    BANK = 'BANK', _('Bank Transfer')
+    CASH = 'CASH', _('Cash')
+    CHEQUE = 'CHEQUE', _('Cheque')
+    CARD = 'CARD', _('Card')
 
 
 class PaymentStatus(models.TextChoices):
-    PENDING = 'pending', _('Pending')
-    COMPLETED = 'completed', _('Completed')
-    FAILED = 'failed', _('Failed')
-    REVERSED = 'reversed', _('Reversed')
+    PENDING = 'PENDING', _('Pending')
+    COMPLETED = 'COMPLETED', _('Completed')
+    FAILED = 'FAILED', _('Failed')
+    REVERSED = 'REVERSED', _('Reversed')
 
 
 class MpesaTransactionStatus(models.TextChoices):
-    PENDING = 'pending', _('Pending')
-    RECONCILED = 'reconciled', _('Reconciled')
-    FAILED = 'failed', _('Failed')
-    DUPLICATE = 'duplicate', _('Duplicate')
+    PENDING = 'PENDING', _('Pending')
+    RECONCILED = 'RECONCILED', _('Reconciled')
+    FAILED = 'FAILED', _('Failed')
+    DUPLICATE = 'DUPLICATE', _('Duplicate')
 
 
-class VendorPaymentTerms(models.TextChoices):
-    IMMEDIATE = 'pending', _('Immediate')
-    NET_7 = 'net_7', _('Net 7 Days')
-    NET_15 = 'net_15', _('Net 15 Days')
-    NET_30 = 'net_30', _('Net 30 Days')
-    NET_60 = 'net_60', _('Net 60 Days')
+class VendorPaymentTerm(models.TextChoices):
+    IMMEDIATE = 'IMMEDIATE', _('Immediate')
+    NET_7 = 'NET_7', _('Net 7 Days')
+    NET_15 = 'NET_15', _('Net 15 Days')
+    NET_30 = 'NET_30', _('Net 30 Days')
+    NET_60 = 'NET_60', _('Net 60 Days')
 
 
 class ExpensePaymentMethod(models.TextChoices):
-    CASH = 'cash', _('Cash')
-    CHEQUE = 'cheque', _('Cheque')
-    BANK_TRANSFER = 'bank_transfer', _('Bank Transfer')
-    MPESA = 'mpesa', _('M-Pesa')
-    CARD = 'card', _('Card')
-    PETTY_CASH = 'petty_cash', _('Petty Cash')
+    CASH = 'CASH', _('Cash')
+    CHEQUE = 'CHEQUE', _('Cheque')
+    BANK_TRANSFER = 'BANK_TRANSFER', _('Bank Transfer')
+    MPESA = 'MPESA', _('M-Pesa')
+    CARD = 'CARD', _('Card')
+    PETTY_CASH = 'PETTY_CASH', _('Petty Cash')
 
 
 class ExpenseStatus(models.TextChoices):
-    DRAFT = 'draft', _('Draft')
-    PENDING_APPROVAL = 'pending_approval', _('Pending Approval')
-    APPROVED = 'approved', _('Approved')
-    REJECTED = 'rejected', _('Rejected')
-    PAID = 'paid', _('Paid')
-    CANCELLED = 'cancelled', _('Cancelled')
+    DRAFT = 'DRAFT', _('Draft')
+    PENDING_APPROVAL = 'PENDING_APPROVAL', _('Pending Approval')
+    APPROVED = 'APPROVED', _('Approved')
+    REJECTED = 'REJECTED', _('Rejected')
+    PAID = 'PAID', _('Paid')
+    CANCELLED = 'CANCELLED', _('Cancelled')
 
 
 class ExpenseRecurrenceFrequency(models.TextChoices):
-    MONTHLY = 'monthly', _('Monthly')
-    QUARTERLY = 'quarterly', _('Quarterly')
-    ANNUALLY = 'annually', _('Annually')
+    MONTHLY = 'MONTHLY', _('Monthly')
+    QUARTERLY = 'QUARTERLY', _('Quarterly')
+    ANNUALLY = 'ANNUALLY', _('Annually')
 
 
 class PettyCashStatus(models.TextChoices):
-    ACTIVE = 'active', _('Active')
-    SUSPENDED = 'suspended', _('Suspended')
-    CLOSED = 'closed', _('Closed')
+    ACTIVE = 'ACTIVE', _('Active')
+    SUSPENDED = 'SUSPENDED', _('Suspended')
+    CLOSED = 'CLOSED', _('Closed')
 
 
 class PettyCashTransactionType(models.TextChoices):
-    DISBURSEMENT = 'disbursement', _('Disbursement')
-    REPLENISHMENT = 'replenishment', _('Replenishment')
-    ADJUSTMENT = 'adjustment', _('Adjustment')
+    DISBURSEMENT = 'DISBURSEMENT', _('Disbursement')
+    REPLENISHMENT = 'REPLENISHMENT', _('Replenishment')
+    ADJUSTMENT = 'ADJUSTMENT', _('Adjustment')
 
 
 class BudgetPeriod(models.TextChoices):
-    ANNUAL = 'annual', _('Annual')
-    QUARTERLY = 'quarterly', _('Quarterly')
-    MONTHLY = 'monthly', _('Monthly')
+    ANNUAL = 'ANNUAL', _('Annual')
+    QUARTERLY = 'QUARTERLY', _('Quarterly')
+    MONTHLY = 'MONTHLY', _('Monthly')
 
 
 class FeeItem(GenericBaseModel):
@@ -123,10 +123,12 @@ class FeeItem(GenericBaseModel):
     is_active = models.BooleanField(default=True, verbose_name=_('Is Active'))
 
     class Meta:
+        verbose_name = _('Fee Item')
+        verbose_name_plural = _('Fee Items')
         ordering = ['category', 'name']
 
-    def __str__(self):
-        return f"{self.name} - KES {self.default_amount}"
+    def __str__(self) -> str:
+        return f'{self.name} - KES {self.default_amount}'
 
 
 class GradeLevelFee(BaseModel):
@@ -143,11 +145,13 @@ class GradeLevelFee(BaseModel):
     is_mandatory = models.BooleanField(default=True, verbose_name=_('Is Mandatory'))
 
     class Meta:
+        verbose_name = _('Grade Level Fee')
+        verbose_name_plural = _('Grade Level Fees')
         unique_together = ['fee_item', 'grade_level', 'term', 'academic_year']
         ordering = ['grade_level', 'term']
 
-    def __str__(self):
-        return f"{self.fee_item.name} - {self.grade_level} {self.term}"
+    def __str__(self) -> str:
+        return f'{self.fee_item.name} - {self.grade_level} {self.term}'
 
 
 class Invoice(BaseModel):
@@ -161,7 +165,7 @@ class Invoice(BaseModel):
     student = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name=_('Student'))
     priority = models.IntegerField(
         default=1,
-        help_text=_("Lower number = higher priority (1 is highest)"),
+        help_text=_('Lower number = higher priority (1 is highest)'),
         verbose_name=_('Priority')
     )
     due_date = models.DateField(verbose_name=_('Due Date'))
@@ -192,6 +196,8 @@ class Invoice(BaseModel):
     objects = InvoiceManager()
 
     class Meta:
+        verbose_name = _('Invoice')
+        verbose_name_plural = _('Invoices')
         ordering = ['priority', '-created_at']
         indexes = [
             models.Index(fields=['student', 'status']),
@@ -199,50 +205,54 @@ class Invoice(BaseModel):
             models.Index(fields=['priority', 'status']),
         ]
 
-    def __str__(self):
-        return f"Invoice {self.id} - {self.student.get_full_name()}"
+    def __str__(self) -> str:
+        return f'Invoice {self.id} - {self.student.get_full_name()}'
 
     @staticmethod
-    def generate_invoice_reference():
-        today_str = timezone.now().strftime("%Y%m%d")
+    def generate_invoice_reference() -> str:
+        today_str = timezone.now().strftime('%Y%m%d')
         last_invoice = Invoice.objects.filter(
-            invoice_reference__startswith=f"INV-{today_str}"
+            invoice_reference__startswith=f'INV-{today_str}'
         ).order_by('created_at').last()
         if last_invoice:
             last_seq = int(last_invoice.invoice_reference.split('-')[-1])
             new_seq = last_seq + 1
         else:
             new_seq = 1
-        return f"INV-{today_str}-{new_seq:04d}"
+        return f'INV-{today_str}-{new_seq:04d}'
 
     @property
-    def total_amount(self):
-        return self.items.filter(
-            is_active=True
-        ).aggregate(
-            total=Sum('amount')
-        )['total'] or 0
+    def total_amount(self) -> float:
+        return float(
+            self.items.filter(
+                is_active=True
+            ).aggregate(
+                total=Sum('amount')
+             )['total'] or 0
+        )
 
-    total_amount.fget.short_description = "Total Amount"
-
-    @property
-    def paid_amount(self):
-        return self.payment_allocations.filter(
-            is_active=True
-        ).aggregate(
-            total=Sum('allocated_amount')
-        )['total'] or 0
-
-    paid_amount.fget.short_description = "Paid Amount"
+    total_amount.fget.short_description = _('Total Amount')
 
     @property
-    def balance(self):
-        return self.total_amount - self.paid_amount
+    def paid_amount(self) -> float:
+        return float(
+            self.payment_allocations.filter(
+                is_active=True
+            ).aggregate(
+                total=Sum('allocated_amount')
+            )['total'] or 0
+        )
 
-    balance.fget.short_description = "Balance"
+    paid_amount.fget.short_description = _('Paid Amount')
 
     @property
-    def computed_status(self):
+    def balance(self) -> float:
+        return float(self.total_amount - self.paid_amount)
+
+    balance.fget.short_description = _('Balance')
+
+    @property
+    def computed_status(self) -> str:
         paid = self.paid_amount
 
         if paid == 0:
@@ -257,7 +267,7 @@ class Invoice(BaseModel):
 
         return temp_status
 
-    def save(self, *args, **kwargs):
+    def save(self, *args, **kwargs) -> None:
         if not self.invoice_reference:
             self.invoice_reference = self.generate_invoice_reference()
         self.status = self.computed_status
@@ -295,12 +305,14 @@ class InvoiceItem(BaseModel):
     is_active = models.BooleanField(default=True, verbose_name=_('Is Active'))
 
     class Meta:
-        ordering = ['id']
+        verbose_name = _('Invoice Item')
+        verbose_name_plural = _('Invoice Items')
+        ordering = ['-created_at']
 
-    def __str__(self):
-        return f"{self.invoice.invoice_reference} - {self.fee_item.name}"
+    def __str__(self) -> str:
+        return f'{self.invoice.invoice_reference} - {self.fee_item.name}'
 
-    def save(self, *args, **kwargs):
+    def save(self, *args, **kwargs) -> None:
         self.amount = self.unit_price * self.quantity
         super().save(*args, **kwargs)
 
@@ -357,45 +369,49 @@ class Payment(BaseModel):
     )
 
     class Meta:
+        verbose_name = _('Payment')
+        verbose_name_plural = _('Payments')
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['payment_method', 'status']),
             models.Index(fields=['mpesa_receipt_number']),
         ]
 
-    def __str__(self):
-        return f"Payment {self.payment_reference} - KES {self.amount}"
+    def __str__(self) -> str:
+        return f'Payment {self.payment_reference} - KES {self.amount}'
 
     @staticmethod
-    def generate_payment_reference():
-        today_str = timezone.now().strftime("%Y%m%d")
+    def generate_payment_reference() -> str:
+        today_str = timezone.now().strftime('%Y%m%d')
         last_payment = Payment.objects.filter(
-            payment_reference__startswith=f"PAY-{today_str}"
+            payment_reference__startswith=f'PAY-{today_str}'
         ).order_by('created_at').last()
         if last_payment:
             last_seq = int(last_payment.payment_reference.split('-')[-1])
             new_seq = last_seq + 1
         else:
             new_seq = 1
-        return f"PAY-{today_str}-{new_seq:04d}"
+        return f'PAY-{today_str}-{new_seq:04d}'
 
     @property
-    def utilized_amount(self):
-        return self.allocations.filter(
-            is_active=True
-        ).aggregate(
-            total=Sum('allocated_amount')
-        )['total'] or 0
+    def utilized_amount(self) -> float:
+        return float(
+            self.allocations.filter(
+                is_active=True
+            ).aggregate(
+                total=Sum('allocated_amount')
+            )['total'] or 0
+        )
 
-    utilized_amount.fget.short_description = "Utilized Amount"
+    utilized_amount.fget.short_description = _('Utilized Amount')
 
     @property
-    def unassigned_amount(self):
-        return self.amount - self.utilized_amount
+    def unassigned_amount(self) -> float:
+        return float(self.amount - self.utilized_amount)
 
-    unassigned_amount.fget.short_description = "Unassigned Amount"
+    unassigned_amount.fget.short_description = _('Unassigned Amount')
 
-    def save(self, *args, **kwargs):
+    def save(self, *args, **kwargs) -> None:
         if not self.payment_reference:
             self.payment_reference = self.generate_payment_reference()
 
@@ -440,14 +456,16 @@ class MpesaTransaction(BaseModel):
     )
 
     class Meta:
+        verbose_name = _('M-Pesa Transaction')
+        verbose_name_plural = _('M-Pesa Transactions')
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['bill_ref_number', 'is_reconciled']),
             models.Index(fields=['trans_id']),
         ]
 
-    def __str__(self):
-        return f"M-Pesa {self.trans_id} - KES {self.trans_amount}"
+    def __str__(self) -> str:
+        return f'M-Pesa {self.trans_id} - KES {self.trans_amount}'
 
 
 class PaymentAllocation(BaseModel):
@@ -473,52 +491,54 @@ class PaymentAllocation(BaseModel):
     is_active = models.BooleanField(default=True, verbose_name=_('Is Active'))
 
     class Meta:
-        ordering = ['allocation_order']
+        verbose_name = _('Payment Allocation')
+        verbose_name_plural = _('Payment Allocations')
+        ordering = ['created_at']
 
-    def __str__(self):
-        return f"{self.payment.payment_reference} -> {self.invoice.invoice_reference}"
+    def __str__(self) -> str:
+        return f'{self.payment.payment_reference} -> {self.invoice.invoice_reference}'
 
 
 class ExpenseCategory(GenericBaseModel):
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100, unique=True, verbose_name=_('Category Name'))
     parent = models.ForeignKey(
         'self',
         on_delete=models.CASCADE,
         null=True,
         blank=True,
-        related_name='subcategories'
+        related_name='subcategories',
+        verbose_name=_('Parent Category')
     )
 
-    # Budget settings
-    has_budget = models.BooleanField(default=False)
+    has_budget = models.BooleanField(default=False, verbose_name=_('Has Budget'))
     monthly_budget = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         null=True,
         blank=True,
-        validators=[MinValueValidator(Decimal('0.01'))]
+        validators=[MinValueValidator(Decimal('0.01'))],
+        verbose_name=_('Monthly Budget')
     )
     annual_budget = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         null=True,
         blank=True,
-        validators=[MinValueValidator(Decimal('0.01'))]
+        validators=[MinValueValidator(Decimal('0.01'))],
+        verbose_name=_('Annual Budget')
     )
-
-    is_active = models.BooleanField(default=True)
-    requires_approval = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True, verbose_name=_('Is Active'))
+    requires_approval = models.BooleanField(default=False, verbose_name=_('Requires Approval'))
 
     class Meta:
-        verbose_name_plural = 'Expense Categories'
+        verbose_name = _('Expense Category')
+        verbose_name_plural = _('Expense Categories')
         ordering = ['name']
 
-    def __str__(self):
-        if self.parent:
-            return f"{self.parent.name} > {self.name}"
-        return self.name
+    def __str__(self) -> str:
+        return f'{self.parent.name} > {self.name}' if self.parent else self.name
 
-    def get_full_path(self):
+    def get_full_path(self) -> str:
         path = [self.name]
         parent = self.parent
         while parent:
@@ -526,229 +546,242 @@ class ExpenseCategory(GenericBaseModel):
             parent = parent.parent
         return ' > '.join(path)
 
-    def get_total_spent(self, start_date=None, end_date=None):
+    def get_total_spent(self, start_date=None, end_date=None) -> float:
         expenses = self.expenses.filter(status='approved')
         if start_date:
             expenses = expenses.filter(expense_date__gte=start_date)
         if end_date:
             expenses = expenses.filter(expense_date__lte=end_date)
 
-        from django.db.models import Sum
         total = expenses.aggregate(Sum('amount'))['amount__sum'] or Decimal('0.00')
-
-        # Include subcategories
         for subcategory in self.subcategories.all():
             total += subcategory.get_total_spent(start_date, end_date)
-
-        return total
+        return float(total)
 
 
 class Vendor(GenericBaseModel):
-    name = models.CharField(max_length=100, unique=True)
-
-    contact_person = models.CharField(max_length=100, blank=True)
-    email = models.EmailField(blank=True)
-    phone = models.CharField(max_length=20, blank=True)
-
-    address = models.TextField(blank=True)
-    tax_id = models.CharField(max_length=50, blank=True, verbose_name='KRA PIN')
-
+    name = models.CharField(max_length=100, unique=True, verbose_name=_('Vendor Name'))
+    contact_person = models.CharField(max_length=100, blank=True, verbose_name=_('Contact Person'))
+    email = models.EmailField(blank=True, verbose_name=_('Email Address'))
+    phone = models.CharField(max_length=20, blank=True, verbose_name=_('Phone Number'))
+    address = models.TextField(blank=True, verbose_name=_('Address'))
+    kra_pin = models.CharField(max_length=50, blank=True, verbose_name=_('KRA PIN'))
     payment_terms = models.CharField(
         max_length=20,
-        choices=VendorPaymentTerms.choices,
-        default=VendorPaymentTerms.NET_30
+        choices=VendorPaymentTerm.choices,
+        default=VendorPaymentTerm.NET_30,
+        verbose_name=_('Payment Terms')
     )
-
     mpesa_pochi_number = models.CharField(
         max_length=20,
         blank=True,
-        help_text="Pochi la Biashara phone number"
+        help_text=_('Pochi la Biashara phone number'),
+        verbose_name=_('MPESA Pochi Number')
     )
-
     mpesa_paybill_number = models.CharField(
         max_length=20,
         blank=True,
-        help_text="Paybill business number"
+        help_text=_('Paybill business number'),
+        verbose_name=_('MPESA Paybill Number')
     )
-
     mpesa_paybill_account = models.CharField(
         max_length=50,
         blank=True,
-        help_text="Account number to use with Paybill"
+        help_text=_('Account number to use with Paybill'),
+        verbose_name=_('MPESA Paybill Account')
     )
-
     mpesa_till_number = models.CharField(
         max_length=20,
         blank=True,
-        help_text="Buy Goods Till number"
+        help_text=_('Buy Goods Till number'),
+        verbose_name=_('MPESA Till Number')
     )
-
-    bank_name = models.CharField(max_length=100, blank=True)
-    bank_account = models.CharField(max_length=50, blank=True)
-    bank_branch = models.CharField(max_length=100, blank=True)
-
-    is_active = models.BooleanField(default=True)
-    notes = models.TextField(blank=True)
+    bank_name = models.CharField(max_length=100, blank=True, verbose_name=_('Bank Name'))
+    bank_account = models.CharField(max_length=50, blank=True, verbose_name=_('Bank Account Number'))
+    bank_branch = models.CharField(max_length=100, blank=True, verbose_name=_('Bank Branch'))
+    is_active = models.BooleanField(default=True, verbose_name=_('Is Active'))
+    notes = models.TextField(blank=True, verbose_name=_('Notes'))
 
     class Meta:
         ordering = ['name']
+        verbose_name = _('Vendor')
+        verbose_name_plural = _('Vendors')
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
-    def get_total_paid(self, year=None):
-        from django.db.models import Sum
+    def get_total_paid(self, year=None) -> float:
         expenses = self.expenses.filter(status='approved')
         if year:
             expenses = expenses.filter(expense_date__year=year)
-        return expenses.aggregate(Sum('amount'))['amount__sum'] or Decimal('0.00')
+        return float(expenses.aggregate(Sum('amount'))['amount__sum'] or 0)
 
 
 class Department(GenericBaseModel):
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100, unique=True, verbose_name=_('Department Name'))
     head = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='headed_departments'
+        related_name='headed_departments',
+        verbose_name=_('Department Head')
     )
-
     budget_allocated = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        default=Decimal('0.00')
+        default=Decimal('0.00'),
+        verbose_name=_('Budget Allocated')
     )
-
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True, verbose_name=_('Is Active'))
 
     class Meta:
         ordering = ['name']
+        verbose_name = _('Department')
+        verbose_name_plural = _('Departments')
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
-    def get_total_expenses(self, start_date=None, end_date=None):
-        from django.db.models import Sum
+    def get_total_expenses(self, start_date=None, end_date=None) -> float:
         expenses = self.expenses.filter(status='approved')
         if start_date:
             expenses = expenses.filter(expense_date__gte=start_date)
         if end_date:
             expenses = expenses.filter(expense_date__lte=end_date)
-        return expenses.aggregate(Sum('amount'))['amount__sum'] or Decimal('0.00')
+        return float(expenses.aggregate(Sum('amount'))['amount__sum'] or 0)
 
-    def get_budget_utilization(self):
+    def get_budget_utilization(self) -> int:
         if self.budget_allocated > 0:
-            spent = self.get_total_expenses(
-                start_date=timezone.now().replace(month=1, day=1).date()
-            )
-            return (spent / self.budget_allocated) * 100
+            spent = self.get_total_expenses(start_date=timezone.now().replace(month=1, day=1).date())
+            return round((spent / self.budget_allocated) * 100)
         return 0
 
 
 class Expense(GenericBaseModel):
-    expense_reference = models.CharField(max_length=50, unique=True, db_index=True)
+    expense_reference = models.CharField(
+        max_length=50,
+        unique=True,
+        db_index=True,
+        verbose_name=_('Expense Reference')
+    )
 
     category = models.ForeignKey(
         ExpenseCategory,
         on_delete=models.PROTECT,
-        related_name='expenses'
+        related_name='expenses',
+        verbose_name=_('Category')
     )
     department = models.ForeignKey(
         Department,
         on_delete=models.PROTECT,
-        related_name='expenses'
+        related_name='expenses',
+        verbose_name=_('Department')
     )
     vendor = models.ForeignKey(
         Vendor,
         on_delete=models.PROTECT,
         related_name='expenses',
         null=True,
-        blank=True
+        blank=True,
+        verbose_name=_('Vendor')
     )
 
     amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))]
+        validators=[MinValueValidator(Decimal('0.01'))],
+        verbose_name=_('Amount')
     )
 
-    expense_date = models.DateField(default=timezone.now)
+    expense_date = models.DateField(
+        default=timezone.now,
+        verbose_name=_('Expense Date')
+    )
 
     payment_method = models.CharField(
         max_length=20,
-        choices=ExpensePaymentMethod.choices
+        choices=ExpensePaymentMethod.choices,
+        verbose_name=_('Payment Method')
     )
 
     status = models.CharField(
         max_length=20,
         choices=ExpenseStatus.choices,
         default=ExpenseStatus.DRAFT,
-        db_index=True
+        db_index=True,
+        verbose_name=_('Status')
     )
 
     # Reference numbers
-    invoice_number = models.CharField(max_length=100, blank=True)
-    receipt_number = models.CharField(max_length=100, blank=True)
-    cheque_number = models.CharField(max_length=50, blank=True)
-    transaction_reference = models.CharField(max_length=100, blank=True)
+    invoice_number = models.CharField(max_length=100, blank=True, verbose_name=_('Invoice Number'))
+    receipt_number = models.CharField(max_length=100, blank=True, verbose_name=_('Receipt Number'))
+    cheque_number = models.CharField(max_length=50, blank=True, verbose_name=_('Cheque Number'))
+    transaction_reference = models.CharField(max_length=100, blank=True, verbose_name=_('Transaction Reference'))
 
     # Approval workflow
     requested_by = models.ForeignKey(
         User,
         on_delete=models.PROTECT,
-        related_name='requested_expenses'
+        related_name='requested_expenses',
+        verbose_name=_('Requested By')
     )
     approved_by = models.ForeignKey(
         User,
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        related_name='approved_expenses'
+        related_name='approved_expenses',
+        verbose_name=_('Approved By')
     )
     rejected_by = models.ForeignKey(
         User,
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        related_name='rejected_expenses'
+        related_name='rejected_expenses',
+        verbose_name=_('Rejected By')
     )
 
-    approved_at = models.DateTimeField(null=True, blank=True)
-    rejected_at = models.DateTimeField(null=True, blank=True)
-    rejection_reason = models.TextField(blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Approved At'))
+    rejected_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Rejected At'))
+    rejection_reason = models.TextField(blank=True, verbose_name=_('Rejection Reason'))
 
-    paid_at = models.DateTimeField(null=True, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Paid At'))
     paid_by = models.ForeignKey(
         User,
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        related_name='paid_expenses'
+        related_name='paid_expenses',
+        verbose_name=_('Paid By')
     )
 
     # Tax information
-    is_taxable = models.BooleanField(default=False)
+    is_taxable = models.BooleanField(default=False, verbose_name=_('Is Taxable'))
     tax_rate = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=Decimal('0.00')
+        default=Decimal('0.00'),
+        verbose_name=_('Tax Rate')
     )
     tax_amount = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        default=Decimal('0.00')
+        default=Decimal('0.00'),
+        verbose_name=_('Tax Amount')
     )
 
-    is_recurring = models.BooleanField(default=False)
+    is_recurring = models.BooleanField(default=False, verbose_name=_('Is Recurring'))
     recurrence_frequency = models.CharField(
         max_length=20,
         choices=ExpenseRecurrenceFrequency.choices,
         blank=True,
-        null=True
+        null=True,
+        verbose_name=_('Recurrence Frequency')
     )
 
-    notes = models.TextField(blank=True)
+    notes = models.TextField(blank=True, verbose_name=_('Notes'))
 
     class Meta:
         ordering = ['-expense_date', '-created_at']
@@ -758,11 +791,13 @@ class Expense(GenericBaseModel):
             models.Index(fields=['department', 'status']),
             models.Index(fields=['vendor']),
         ]
+        verbose_name = _('Expense')
+        verbose_name_plural = _('Expenses')
 
-    def __str__(self):
-        return f"{self.expense_reference} - {self.name}"
+    def __str__(self) -> str:
+        return f'{self.expense_reference} - {self.name}'
 
-    def save(self, *args, **kwargs):
+    def save(self, *args, **kwargs) -> None:
         if not self.expense_reference:
             self.expense_reference = self.generate_expense_reference()
 
@@ -775,18 +810,18 @@ class Expense(GenericBaseModel):
         super().save(*args, **kwargs)
 
     @staticmethod
-    def generate_expense_reference():
+    def generate_expense_reference() -> str:
         prefix = timezone.now().strftime('EXP%Y%m')
         count = Expense.objects.filter(
             expense_number__startswith=prefix
         ).count() + 1
-        return f"{prefix}{count:05d}"
+        return f'{prefix}{count:05d}'
 
     @property
-    def total_amount(self):
-        return self.amount + self.tax_amount
+    def total_amount(self) -> float:
+        return float(self.amount + self.tax_amount)
 
-    def can_edit(self, user):
+    def can_edit(self, user) -> bool:
         if self.status in [ExpenseStatus.PAID, ExpenseStatus.CANCELLED]:
             return False
 
@@ -800,31 +835,33 @@ class ExpenseAttachment(GenericBaseModel):
     expense = models.ForeignKey(
         Expense,
         on_delete=models.CASCADE,
-        related_name='attachments'
+        related_name='attachments',
+        verbose_name=_('Expense')
     )
-
     file = models.FileField(
         upload_to='expenses/attachments/%Y/%m/',
         validators=[
             FileExtensionValidator(
                 allowed_extensions=['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx', 'xls', 'xlsx']
             )
-        ]
+        ],
+        verbose_name=_('File')
     )
+    file_name = models.CharField(max_length=255, verbose_name=_('File Name'))
+    file_type = models.CharField(max_length=50, verbose_name=_('File Type'))
+    file_size = models.IntegerField(help_text=_('Size in bytes'), verbose_name=_('File Size'))
 
-    file_name = models.CharField(max_length=255)
-    file_type = models.CharField(max_length=50)
-    file_size = models.IntegerField(help_text="Size in bytes")  # Size in bytes
-
-    uploaded_by = models.ForeignKey(User, on_delete=models.PROTECT)
+    uploaded_by = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name=_('Uploaded By'))
 
     class Meta:
         ordering = ['-created_at']
+        verbose_name = _('Expense Attachment')
+        verbose_name_plural = _('Expense Attachments')
 
-    def __str__(self):
-        return f"{self.file_name} - {self.expense.expense_number}"
+    def __str__(self) -> str:
+        return f'{self.file_name} - {self.expense.expense_reference}'
 
-    def save(self, *args, **kwargs):
+    def save(self, *args, **kwargs) -> None:
         if self.file:
             self.file_name = self.file.name
             self.file_size = self.file.size
@@ -833,38 +870,40 @@ class ExpenseAttachment(GenericBaseModel):
 
 
 class PettyCash(BaseModel):
-    fund_name = models.CharField(max_length=100)
+    fund_name = models.CharField(max_length=100, verbose_name=_('Fund Name'))
     custodian = models.ForeignKey(
         User,
         on_delete=models.PROTECT,
-        related_name='petty_cash_funds'
+        related_name='petty_cash_funds',
+        verbose_name=_('Custodian')
     )
-
     initial_amount = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))]
+        validators=[MinValueValidator(Decimal('0.01'))],
+        verbose_name=_('Initial Amount')
     )
     current_balance = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        default=Decimal('0.00')
+        default=Decimal('0.00'),
+        verbose_name=_('Current Balance')
     )
-
     status = models.CharField(
         max_length=20,
         choices=PettyCashStatus.choices,
-        default=PettyCashStatus.ACTIVE
+        default=PettyCashStatus.ACTIVE,
+        verbose_name=_('Status')
     )
 
     class Meta:
-        verbose_name = 'Petty Cash Fund'
-        verbose_name_plural = 'Petty Cash Funds'
+        verbose_name = _('Petty Cash Fund')
+        verbose_name_plural = _('Petty Cash Funds')
 
-    def __str__(self):
-        return f"{self.fund_name} - KES {self.current_balance}"
+    def __str__(self) -> str:
+        return f'{self.fund_name} - KES {self.current_balance}'
 
-    def replenish(self, amount, replenished_by, notes=''):
+    def replenish(self, amount, replenished_by, notes='') -> None:
         PettyCashTransaction.objects.create(
             petty_cash_fund=self,
             transaction_type='replenishment',
@@ -880,46 +919,45 @@ class PettyCashTransaction(BaseModel):
     petty_cash_fund = models.ForeignKey(
         PettyCash,
         on_delete=models.CASCADE,
-        related_name='transactions'
+        related_name='transactions',
+        verbose_name=_('Petty Cash Fund')
     )
-    description = models.TextField()
-
+    description = models.TextField(verbose_name=_('Description'))
     transaction_type = models.CharField(
         max_length=20,
-        choices=PettyCashTransactionType.choices
+        choices=PettyCashTransactionType.choices,
+        verbose_name=_('Transaction Type')
     )
-
     amount = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))]
+        validators=[MinValueValidator(Decimal('0.01'))],
+        verbose_name=_('Amount')
     )
-
     expense = models.OneToOneField(
         Expense,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='petty_cash_transaction'
+        related_name='petty_cash_transaction',
+        verbose_name=_('Expense')
     )
-
-    processed_by = models.ForeignKey(User, on_delete=models.PROTECT)
-
-    balance_before = models.DecimalField(max_digits=10, decimal_places=2)
-    balance_after = models.DecimalField(max_digits=10, decimal_places=2)
-
-    notes = models.TextField(blank=True)
+    processed_by = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name=_('Processed By'))
+    balance_before = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_('Balance Before'))
+    balance_after = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_('Balance After'))
+    notes = models.TextField(blank=True, verbose_name=_('Notes'))
 
     class Meta:
         ordering = ['-created_at']
+        verbose_name = _('Petty Cash Transaction')
+        verbose_name_plural = _('Petty Cash Transactions')
 
-    def __str__(self):
-        return f"{self.transaction_type} - KES {self.amount}"
+    def __str__(self) -> str:
+        return f'{self.transaction_type} - KES {self.amount}'
 
-    def save(self, *args, **kwargs):
+    def save(self, *args, **kwargs) -> None:
         if not self.pk:
             self.balance_before = self.petty_cash_fund.current_balance
-
             if self.transaction_type == 'disbursement':
                 self.balance_after = self.balance_before - self.amount
             else:  # replenishment or adjustment
@@ -932,68 +970,66 @@ class PettyCashTransaction(BaseModel):
 
 
 class ExpenseBudget(BaseModel):
-    fiscal_year = models.CharField(max_length=9)
-
+    fiscal_year = models.CharField(max_length=9, verbose_name=_('Fiscal Year'))
     category = models.ForeignKey(
         ExpenseCategory,
         on_delete=models.CASCADE,
-        related_name='budgets'
+        related_name='budgets',
+        verbose_name=_('Category')
     )
     department = models.ForeignKey(
         Department,
         on_delete=models.CASCADE,
         related_name='budgets',
         null=True,
-        blank=True
+        blank=True,
+        verbose_name=_('Department')
     )
-
     budget_amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))]
+        validators=[MinValueValidator(Decimal('0.01'))],
+        verbose_name=_('Budget Amount')
     )
-
     period = models.CharField(
         max_length=20,
         choices=BudgetPeriod.choices,
-        default=BudgetPeriod.ANNUAL
+        default=BudgetPeriod.ANNUAL,
+        verbose_name=_('Budget Period')
     )
-
-    start_date = models.DateField()
-    end_date = models.DateField()
-
-    notes = models.TextField(blank=True)
-
-    created_by = models.ForeignKey(User, on_delete=models.PROTECT)
+    start_date = models.DateField(verbose_name=_('Start Date'))
+    end_date = models.DateField(verbose_name=_('End Date'))
+    notes = models.TextField(blank=True, verbose_name=_('Notes'))
+    created_by = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name=_('Created By'))
 
     class Meta:
         unique_together = ['fiscal_year', 'category', 'department', 'period']
         ordering = ['-fiscal_year', 'category']
+        verbose_name = _('Expense Budget')
+        verbose_name_plural = _('Expense Budgets')
 
-    def __str__(self):
-        dept = f" - {self.department.name}" if self.department else ""
-        return f"{self.fiscal_year} - {self.category.name}{dept}"
+    def __str__(self) -> str:
+        dept = f' - {self.department.name}' if self.department else ''
+        return f'{self.fiscal_year} - {self.category.name}{dept}'
 
-    def get_spent_amount(self):
+    def get_spent_amount(self) -> float:
         expenses = Expense.objects.filter(
             category=self.category,
             status=ExpenseStatus.APPROVED,
             expense_date__gte=self.start_date,
             expense_date__lte=self.end_date
         )
-
         if self.department:
             expenses = expenses.filter(department=self.department)
+        return float(expenses.aggregate(Sum('amount'))['amount__sum'] or 0)
 
-        from django.db.models import Sum
-        return expenses.aggregate(Sum('amount'))['amount__sum'] or Decimal('0.00')
-
-    def get_utilization_percentage(self):
+    def get_utilization_percentage(self) -> float:
         spent = self.get_spent_amount()
-        return (spent / self.budget_amount * 100) if self.budget_amount > 0 else 0
+        percentage = (spent / self.budget_amount * 100) if self.budget_amount > 0 else 0
+        return float(round(percentage, 2))
 
-    def get_remaining_budget(self):
-        return self.budget_amount - self.get_spent_amount()
+    def get_remaining_budget(self) -> float:
+        return float(self.budget_amount - self.get_spent_amount())
 
 
 class BalanceSheet(BaseModel):
@@ -1059,7 +1095,10 @@ class BalanceSheet(BaseModel):
     metadata = models.JSONField(default=dict, blank=True, verbose_name=_('Metadata'))
 
     class Meta:
-        ordering = ['-date']
+        ordering = ['-created_at']
+        verbose_name = _('Balance Sheet')
+        verbose_name_plural = _('Balance Sheets')
 
-    def __str__(self):
-        return f"Balance Sheet - {self.date}"
+
+    def __str__(self) -> str:
+        return f'Balance Sheet - {self.date}'

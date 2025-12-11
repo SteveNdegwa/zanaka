@@ -8,6 +8,7 @@ import traceback
 import uuid
 from datetime import timedelta, datetime
 
+from django.core.exceptions import ValidationError, PermissionDenied, ObjectDoesNotExist
 from django.db.models import F, Q
 from django.db.models.aggregates import Sum
 from django.http import QueryDict
@@ -23,6 +24,7 @@ from api.models import RateLimitRule, RateLimitAttempt, RateLimitBlock, ApiClien
 from audit.services.request_context import RequestContext
 from audit.models import RequestLog
 from authentication.models import Identity
+from base.services.system_settings_cache import SystemSettingsCache
 from utils.common import get_request_data, sanitize_data
 from utils.response_provider import ResponseProvider
 
@@ -30,35 +32,23 @@ logger = logging.getLogger(__name__)
 
 
 class GatewayControlMiddleware:
-    API_KEY_HEADER = "X-Api-Key"
-    ENCRYPTED_HEADER = "X-Encrypted"
-
-    API_CLIENT_VALIDATION_EXEMPT_PATHS = [
-        "/console",
-        "/health",
-        "/static",
-        "/media",
-        "/__debug__",
-        "/favicon.ico",
-    ]
-
-    SAVE_REQUEST_LOG_EXEMPT_PATHS = []
-
-    ENCRYPTED = False
+    SYSTEM_SETTINGS = None
+    REQUEST_ENCRYPTED = False
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        self.ENCRYPTED = request.headers.get(self.ENCRYPTED_HEADER) == "1"
+        self.SYSTEM_SETTINGS = SystemSettingsCache.get()
+        self.REQUEST_ENCRYPTED = request.headers.get(self.SYSTEM_SETTINGS.encrypted_header) == '1'
 
-        authentication_required = False
-        signature_verification_required = False
+        api_key_verification_required = self.SYSTEM_SETTINGS.api_key_verification_required
+        signature_verification_required =  self.SYSTEM_SETTINGS.signature_verification_required
 
-        if request.path.startswith("/api/"):
+        if any(request.path.startswith(p) for p in self.SYSTEM_SETTINGS.csrf_exempt_paths):
             request._dont_enforce_csrf_checks = True
 
-        if self.ENCRYPTED:
+        if self.REQUEST_ENCRYPTED:
             request = self._decrypt_request_body(request)
 
         self._set_request_metadata(request)
@@ -84,14 +74,14 @@ class GatewayControlMiddleware:
             request.api_client = callback.client
             RequestContext.update(api_client=request.api_client)
 
-            authentication_required = callback.require_authentication
+            api_key_verification_required = callback.require_authentication
             signature_verification_required = callback.client.require_signature_verification
 
-        if any(request.path.startswith(p) for p in self.API_CLIENT_VALIDATION_EXEMPT_PATHS):
-            authentication_required = False
+        if any(request.path.startswith(p) for p in self.SYSTEM_SETTINGS.api_key_verification_exempt_paths):
+            api_key_verification_required = False
 
-        if authentication_required:
-            response = self._validate_api_client(request)
+        if api_key_verification_required:
+            response = self._verify_api_key(request)
             if response:
                 return self._process_response(request, response)
 
@@ -104,8 +94,8 @@ class GatewayControlMiddleware:
                 return self._process_response(request, response)
 
         rate_limit_result = self._check_rate_limit(request)
-        if rate_limit_result.get("blocked"):
-            response = ResponseProvider.too_many_requests(error="Rate limit exceeded. Try again later.")
+        if rate_limit_result.get('blocked'):
+            response = ResponseProvider.too_many_requests(error='Rate limit exceeded. Try again later.')
             response = self._set_headers(response, rate_limit_result)
             return self._process_response(request, response)
 
@@ -136,15 +126,17 @@ class GatewayControlMiddleware:
 
     @staticmethod
     def process_exception(request, exception):
-        logger.error(
-            "Unhandled exception\n"
-            f"Path: {request.path}\n"
-            f"Method: {request.method}\n"
-            f"User: {getattr(request.user, 'username', 'Anonymous')}\n"
-            f"Exception Type: {type(exception).__name__}\n"
-            f"Message: {str(exception)}\n"
-            f"Traceback:\n{traceback.format_exc()}"
-        )
+        handled_types = (ValidationError, ObjectDoesNotExist, PermissionDenied)
+        if not isinstance(exception, handled_types):
+            logger.error(
+                "Unhandled exception\n"
+                f"Path: {request.path}\n"
+                f"Method: {request.method}\n"
+                f"User: {getattr(request.user, 'username', 'Anonymous')}\n"
+                f"Exception Type: {type(exception).__name__}\n"
+                f"Message: {str(exception)}\n"
+                f"Traceback:\n{traceback.format_exc()}"
+            )
         RequestContext.update(
             exception_type=type(exception).__name__,
             exception_message=str(exception),
@@ -175,14 +167,17 @@ class GatewayControlMiddleware:
         self._save_request_log()
         RequestContext.clear()
 
-        if self.ENCRYPTED:
+        if self.REQUEST_ENCRYPTED:
             response = self._encrypt_response(response)
 
         return response
 
     def _set_request_metadata(self, request):
-        auth_header = request.headers.get("Authorization", "")
-        token = auth_header.split(" ", 1)[1].strip() if auth_header.startswith("Bearer ") else None
+        token = request.COOKIES.get(self.SYSTEM_SETTINGS.auth_token_cookie_name)
+        if not token and self.SYSTEM_SETTINGS.auth_token_allow_header_fallback:
+            auth_header = request.headers.get('Authorization', '')
+            if auth_header.startswith('Bearer '):
+                token = auth_header.split('' '', 1)[1].strip()
 
         user = getattr(request, 'user', None)
         if user and not isinstance(user, AnonymousUser):
@@ -194,7 +189,7 @@ class GatewayControlMiddleware:
         request.user = user
         request.is_authenticated = is_authenticated
         request.client_ip = self._get_client_ip(request)
-        request.user_agent = request.headers.get("User-Agent", "")
+        request.user_agent = request.headers.get('User-Agent', '')
         request.data, request.files = get_request_data(request)
         request.received_at = timezone.now()
 
@@ -212,8 +207,8 @@ class GatewayControlMiddleware:
 
         identity = (
             Identity.objects
-            .filter(~Q(user=None), token=token, status="ACTIVE")
-            .order_by("-created_at")
+            .filter(~Q(user=None), token=token, status='ACTIVE')
+            .order_by('-created_at')
             .first()
         )
 
@@ -223,67 +218,67 @@ class GatewayControlMiddleware:
         identity.extend()
         return True, identity.user
 
-    def _validate_api_client(self, request):
+    def _verify_api_key(self, request):
         request.api_client = None
 
-        api_key = request.headers.get(self.API_KEY_HEADER)
+        api_key = request.headers.get(self.SYSTEM_SETTINGS.api_key_header)
         if not api_key:
-            return ResponseProvider.unauthorized(error="Missing API key")
+            return ResponseProvider.unauthorized(error='Missing API key')
 
         client = ApiClient.objects.filter(api_key=api_key, is_active=True).first()
         if not client:
-            logger.warning("Invalid API key attempted from IP %s", request.client_ip)
-            return ResponseProvider.unauthorized(error="Invalid API key")
+            logger.warning('Invalid API key attempted from IP %s', request.client_ip)
+            return ResponseProvider.unauthorized(error='Invalid API key')
 
         if client.allowed_ips:
-            allowed = [ip.strip() for ip in client.allowed_ips.split(",") if ip.strip()]
+            allowed = [ip.strip() for ip in client.allowed_ips.split('','') if ip.strip()]
             if request.client_ip not in allowed:
-                logger.warning("IP %s not allowed for client %s", request.client_ip, client.name)
-                return ResponseProvider.forbidden(error="IP address not allowed")
+                logger.warning('IP %s not allowed for client %s', request.client_ip, client.name)
+                return ResponseProvider.forbidden(error='IP address not allowed')
 
         request.api_client = client
         return None
 
     @staticmethod
     def _verify_signature(request):
-        client = getattr(request, "api_client", None)
+        client = getattr(request, 'api_client', None)
         if not client:
             return ResponseProvider.forbidden(
-                error="Missing client context for signature verification"
+                error='Missing client context for signature verification'
             )
 
         signature_b64 = request.headers.get(client.signature_header_key)
 
         if not signature_b64:
             return ResponseProvider.unauthorized(
-                error="Signature required but not provided"
+                error='Signature required but not provided'
             )
 
         algo = client.signature_algorithm
         secret = client.signature_secret
         client_key = client.get_active_public_key()
-        body_bytes = getattr(request, "body", b"")
+        body_bytes = getattr(request, 'body', b'')
 
         try:
-            if algo == "HMAC-SHA256":
+            if algo == 'HMAC-SHA256':
                 if not secret:
                     return ResponseProvider.server_error(
-                        error="Missing HMAC secret for required verification"
+                        error='Missing HMAC secret for required verification'
                     )
 
                 expected_sig = hmac.new(secret.encode(), body_bytes, hashlib.sha256).digest()
                 provided_sig = base64.b64decode(signature_b64)
 
                 if not hmac.compare_digest(expected_sig, provided_sig):
-                    return ResponseProvider.unauthorized(error="Invalid HMAC signature")
+                    return ResponseProvider.unauthorized(error='Invalid HMAC signature')
 
-            elif algo == "RSA-SHA256":
+            elif algo == 'RSA-SHA256':
                 if not client_key or not client_key.public_key:
                     return ResponseProvider.server_error(
-                        error="No active RSA public key configured for client"
+                        error='No active RSA public key configured for client'
                     )
 
-                public_key = load_pem_public_key(client_key.public_key.encode("utf-8"))
+                public_key = load_pem_public_key(client_key.public_key.encode('utf-8'))
                 public_key.verify(
                     base64.b64decode(signature_b64),
                     body_bytes,
@@ -296,15 +291,15 @@ class GatewayControlMiddleware:
 
             else:
                 return ResponseProvider.server_error(
-                    error=f"Unsupported signature algorithm: {algo}"
+                    error=f'Unsupported signature algorithm: {algo}'
                 )
         except InvalidSignature:
-            logger.warning("Invalid signature from client %s", client.name)
-            return ResponseProvider.unauthorized(error="Invalid signature")
+            logger.warning('Invalid signature from client %s', client.name)
+            return ResponseProvider.unauthorized(error='Invalid signature')
 
         except Exception as exc:
-            logger.exception("Signature verification failed for client %s: %s", client.name, exc)
-            return ResponseProvider.server_error(error="Signature verification failed")
+            logger.exception('Signature verification failed for client %s: %s', client.name, exc)
+            return ResponseProvider.server_error(error='Signature verification failed')
 
         return None
 
@@ -316,20 +311,20 @@ class GatewayControlMiddleware:
         return datetime.fromtimestamp(bucket, tz=timezone.get_current_timezone())
 
     def _check_rate_limit(self, request) -> dict:
-        client_ip = getattr(request, "client_ip", None)
-        api_client_id = str(request.api_client.id) if getattr(request, "api_client", None) else f"anon-{client_ip}"
-        user_id = str(request.user.id) if getattr(request, "user", None) else f"anon-{client_ip}"
+        client_ip = getattr(request, 'client_ip', None)
+        api_client_id = str(request.api_client.id) if getattr(request, 'api_client', None) else f'anon-{client_ip}'
+        user_id = str(request.user.id) if getattr(request, 'user', None) else f'anon-{client_ip}'
         endpoint = request.path
         method = request.method
         now = timezone.now()
 
-        rules = RateLimitRule.objects.filter(is_active=True).order_by("-priority")
+        rules = RateLimitRule.objects.filter(is_active=True).order_by('-priority')
 
         most_restrictive_info = {
-            "blocked": False,
-            "limit": 0,
-            "remaining": float("inf"),
-            "reset": 0
+            'blocked': False,
+            'limit': 0,
+            'remaining': float('inf'),
+            'reset': 0
         }
 
         for rule in rules:
@@ -348,11 +343,11 @@ class GatewayControlMiddleware:
             if block:
                 retry_after = int((block.blocked_until - now).total_seconds())
                 return {
-                    "blocked": True,
-                    "limit": rule.limit,
-                    "remaining": 0,
-                    "reset": int(block.blocked_until.timestamp()),
-                    "retry_after": retry_after
+                    'blocked': True,
+                    'limit': rule.limit,
+                    'remaining': 0,
+                    'reset': int(block.blocked_until.timestamp()),
+                    'retry_after': retry_after
                 }
 
             attempt, created = RateLimitAttempt.objects.get_or_create(
@@ -360,15 +355,15 @@ class GatewayControlMiddleware:
                 key=limit_key,
                 endpoint=endpoint,
                 window_start=window_start,
-                defaults={"count": 0, "method": method, "last_attempt": now}
+                defaults={'count': 0, 'method': method, 'last_attempt': now}
             )
-            RateLimitAttempt.objects.filter(pk=attempt.pk).update(count=F("count") + 1)
+            RateLimitAttempt.objects.filter(pk=attempt.pk).update(count=F('count') + 1)
 
             total_attempts = RateLimitAttempt.objects.filter(
                 rule=rule,
                 key=limit_key,
                 window_start=window_start
-            ).aggregate(total=Sum("count"))["total"] or 0
+            ).aggregate(total=Sum('count'))['total'] or 0
 
             if total_attempts > rule.limit:
                 reset_time = window_start + window
@@ -380,75 +375,75 @@ class GatewayControlMiddleware:
                 RateLimitBlock.objects.update_or_create(
                     rule=rule,
                     key=limit_key,
-                    defaults={"blocked_until": blocked_until}
+                    defaults={'blocked_until': blocked_until}
                 )
 
                 return {
-                    "blocked": True,
-                    "limit": rule.limit,
-                    "remaining": 0,
-                    "reset": int(reset_time.timestamp()),
-                    "retry_after": int((blocked_until - now).total_seconds())
+                    'blocked': True,
+                    'limit': rule.limit,
+                    'remaining': 0,
+                    'reset': int(reset_time.timestamp()),
+                    'retry_after': int((blocked_until - now).total_seconds())
                 }
 
             remaining = max(0, rule.limit - attempt.count)
-            if remaining < most_restrictive_info["remaining"]:
+            if remaining < most_restrictive_info['remaining']:
                 most_restrictive_info = {
-                    "blocked": False,
-                    "limit": rule.limit,
-                    "remaining": remaining,
-                    "reset": int((window_start + window).timestamp())
+                    'blocked': False,
+                    'limit': rule.limit,
+                    'remaining': remaining,
+                    'reset': int((window_start + window).timestamp())
                 }
 
-        if most_restrictive_info["remaining"] == float("inf"):
-            most_restrictive_info["remaining"] = -1
+        if most_restrictive_info['remaining'] == float('inf'):
+            most_restrictive_info['remaining'] = -1
 
         return most_restrictive_info
 
     @staticmethod
     def _make_limit_key(scope, api_client_id, user_id, client_ip, endpoint, endpoint_pattern=None):
-        if scope == "global":
-            return "global"
-        if scope == "api_client":
+        if scope == 'global':
+            return 'global'
+        if scope == 'api_client':
             if endpoint_pattern:
-                return f"api_client{api_client_id}:endpoint:{endpoint}"
-            return f"api_client:{api_client_id}"
-        if scope == "user":
+                return f'api_client{api_client_id}:endpoint:{endpoint}'
+            return f'api_client:{api_client_id}'
+        if scope == 'user':
             if endpoint_pattern:
-                return f"user:{user_id}:endpoint:{endpoint}"
-            return f"user:{user_id}"
-        if scope == "ip":
+                return f'user:{user_id}:endpoint:{endpoint}'
+            return f'user:{user_id}'
+        if scope == 'ip':
             if endpoint_pattern:
-                return f"ip:{client_ip}:endpoint:{endpoint}"
-            return f"ip:{client_ip}"
-        if scope == "endpoint":
-            return f"endpoint:{endpoint}"
-        if scope == "user_endpoint":
-            return f"user:{user_id}:endpoint:{endpoint}"
-        if scope == "ip_endpoint":
-            return f"ip:{client_ip}:endpoint:{endpoint}"
-        return "unknown"
+                return f'ip:{client_ip}:endpoint:{endpoint}'
+            return f'ip:{client_ip}'
+        if scope == 'endpoint':
+            return f'endpoint:{endpoint}'
+        if scope == 'user_endpoint':
+            return f'user:{user_id}:endpoint:{endpoint}'
+        if scope == 'ip_endpoint':
+            return f'ip:{client_ip}:endpoint:{endpoint}'
+        return 'unknown'
 
     @staticmethod
     def _load_system_keys():
         try:
-            system_key = SystemKey.objects.filter(is_active=True).order_by("-created_at").first()
+            system_key = SystemKey.objects.filter(is_active=True).order_by('-created_at').first()
             if not system_key:
-                logger.error("No active system key found in database.")
+                logger.error('No active system key found in database.')
                 return None, None
 
-            priv_key_obj = load_pem_private_key(system_key.private_key.encode("utf-8"), password=None)
-            pub_key_obj = load_pem_public_key(system_key.public_key.encode("utf-8"))
+            priv_key_obj = load_pem_private_key(system_key.private_key.encode('utf-8'), password=None)
+            pub_key_obj = load_pem_public_key(system_key.public_key.encode('utf-8'))
             return priv_key_obj, pub_key_obj
         except Exception as e:
-            logger.exception("Failed to load system keys from database: %s", e)
+            logger.exception('Failed to load system keys from database: %s', e)
             return None, None
 
     def encrypt_payload(self, data):
-        plaintext = json.dumps(data).encode("utf-8")
+        plaintext = json.dumps(data).encode('utf-8')
         _, pub_key_obj = self._load_system_keys()
         if not pub_key_obj:
-            raise RuntimeError("No system public key available for encryption")
+            raise RuntimeError('No system public key available for encryption')
 
         return pub_key_obj.encrypt(
             plaintext,
@@ -462,7 +457,7 @@ class GatewayControlMiddleware:
     def decrypt_payload(self, ciphertext):
         priv_key_obj, _ = self._load_system_keys()
         if not priv_key_obj:
-            raise RuntimeError("No system private key available for decryption")
+            raise RuntimeError('No system private key available for decryption')
 
         plaintext = priv_key_obj.decrypt(
             ciphertext,
@@ -472,39 +467,40 @@ class GatewayControlMiddleware:
                 label=None
             )
         )
-        return json.loads(plaintext.decode("utf-8"))
+        return json.loads(plaintext.decode('utf-8'))
 
     def _decrypt_request_body(self, request):
         try:
             if request.body:
                 ciphertext = base64.b64decode(request.body)
                 decrypted_data = self.decrypt_payload(ciphertext)
-                request._body = json.dumps(decrypted_data).encode("utf-8")
+                request._body = json.dumps(decrypted_data).encode('utf-8')
                 request.POST = QueryDict('', mutable=True)
         except Exception as e:
-            logger.warning(f"Failed to decrypt request body: {e}")
+            logger.warning(f'Failed to decrypt request body: {e}')
         return request
 
     def _encrypt_response(self, response):
         try:
-            if hasattr(response, "content") and response.get("Content-Type", "").startswith("application/json"):
+            if hasattr(response, 'content') and response.get('Content-Type', '').startswith('application/json'):
                 raw_content = json.loads(response.content)
                 ciphertext = self.encrypt_payload(raw_content)
-                encrypted_b64 = base64.b64encode(ciphertext).decode("utf-8")
-                response.content = json.dumps(encrypted_b64).encode("utf-8")
-                response["Content-Length"] = str(len(response.content))
+                encrypted_b64 = base64.b64encode(ciphertext).decode('utf-8')
+                wrapped_response = {'data': encrypted_b64}
+                response.content = json.dumps(wrapped_response).encode('utf-8')
+                response['Content-Length'] = str(len(response.content))
         except Exception as e:
-            logger.warning(f"Failed to encrypt response body: {e}")
+            logger.warning(f'Failed to encrypt response body: {e}')
         return response
 
     @staticmethod
     def _set_headers(response, rate_limit_info=None):
-        if rate_limit_info and rate_limit_info.get("limit") is not None:
-            response["X-RateLimit-Limit"] = str(rate_limit_info["limit"])
-            response["X-RateLimit-Remaining"] = str(rate_limit_info["remaining"])
-            response["X-RateLimit-Reset"] = str(rate_limit_info["reset"])
-            if rate_limit_info.get("retry_after"):
-                response["Retry-After"] = str(rate_limit_info["retry_after"])
+        if rate_limit_info and rate_limit_info.get('limit') is not None:
+            response['X-RateLimit-Limit'] = str(rate_limit_info['limit'])
+            response['X-RateLimit-Remaining'] = str(rate_limit_info['remaining'])
+            response['X-RateLimit-Reset'] = str(rate_limit_info['reset'])
+            if rate_limit_info.get('retry_after'):
+                response['Retry-After'] = str(rate_limit_info['retry_after'])
         return response
 
     def _save_request_log(self):
@@ -512,7 +508,7 @@ class GatewayControlMiddleware:
             ctx = RequestContext.get()
 
             path = ctx.get('request_path', '')
-            if any(path.startswith(ep) for ep in self.SAVE_REQUEST_LOG_EXEMPT_PATHS):
+            if any(path.startswith(ep) for ep in self.SYSTEM_SETTINGS.save_request_log_exempt_paths):
                 return
 
             started_at = ctx.get('started_at')
@@ -545,4 +541,4 @@ class GatewayControlMiddleware:
                 response_data=sanitize_data(ctx.get('response_data')),
             )
         except Exception as e:
-            logger.exception(f"Failed to save RequestLog: {e}")
+            logger.exception(f'Failed to save RequestLog: {e}')

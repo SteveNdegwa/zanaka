@@ -11,10 +11,10 @@ class SchoolServices(BaseServices):
     """
 
     fk_mappings = {
-        "school_id": ("schools.School", "school"),
-        "branch_id": ("schools.Branch", "branch"),
-        "classroom_id": ("schools.Classroom", "classroom"),
-        "principal_id": ("users.User", "principal"),
+        'school_id': ('schools.School', 'school'),
+        'branch_id': ('schools.Branch', 'branch'),
+        'classroom_id': ('schools.Classroom', 'classroom'),
+        'principal_id': ('users.User', 'principal'),
     }
 
     @classmethod
@@ -33,7 +33,7 @@ class SchoolServices(BaseServices):
         try:
             return qs.get(id=school_id, is_active=True)
         except School.DoesNotExist:
-            raise ObjectDoesNotExist("School not found")
+            raise ObjectDoesNotExist('School not found')
 
     @classmethod
     @transaction.atomic
@@ -45,10 +45,15 @@ class SchoolServices(BaseServices):
         :raises ValidationError: If required fields are missing or code already exists.
         :rtype: School
         """
-        required_fields = {"name", "code"}
+        required_fields = {'name', 'code'}
         data = cls._sanitize_and_validate_data(data, required_fields=required_fields)
-        if School.objects.filter(code=data.get("code")).exists():
-            raise ValidationError("Code already exists")
+        data['code'] = str(data['code']).upper().strip()
+        if len(data['code']) < 3:
+            raise ValidationError('Code must be at least 3 characters long')
+        if len(data['code']) > 10:
+            raise ValidationError('Code must not exceed 10 characters')
+        if School.objects.filter(code=data.get('code')).exists():
+            raise ValidationError('Code already exists')
         return School.objects.create(**data)
 
     @classmethod
@@ -63,7 +68,7 @@ class SchoolServices(BaseServices):
         :rtype: School
         """
         school = cls.get_school(school_id, True)
-        allowed_fields = {"address", "contact_email", "contact_phone", "established_date"}
+        allowed_fields = {'address', 'contact_email', 'contact_phone', 'established_date'}
         data = cls._sanitize_and_validate_data(data, allowed_fields=allowed_fields)
         for k, v in data.items():
             setattr(school, k, v)
@@ -82,7 +87,7 @@ class SchoolServices(BaseServices):
         """
         school = cls.get_school(school_id, True)
         school.is_active = False
-        school.save(update_fields=["is_active"])
+        school.save(update_fields=['is_active'])
 
     @classmethod
     def get_school_profile(cls, school_id: str) -> dict:
@@ -95,14 +100,14 @@ class SchoolServices(BaseServices):
         """
         school = cls.get_school(school_id)
         return {
-            "id": school.id,
-            "name": school.name,
-            "code": school.code,
-            "address": school.address,
-            "contact_email": school.contact_email,
-            "contact_phone": school.contact_phone,
-            "established_date": school.established_date,
-            "is_active": school.is_active,
+            'id': school.id,
+            'name': school.name,
+            'code': school.code,
+            'address': school.address,
+            'contact_email': school.contact_email,
+            'contact_phone': school.contact_phone,
+            'established_date': school.established_date,
+            'is_active': school.is_active,
         }
 
     @classmethod
@@ -126,13 +131,13 @@ class SchoolServices(BaseServices):
         :raises ValidationError: If branch does not exist or is inactive.
         :rtype: Branch
         """
-        qs = Branch.objects.select_related("school", "principal")
+        qs = Branch.objects.select_related('school', 'principal')
         if select_for_update:
             qs = qs.select_for_update()
         try:
             return qs.get(id=branch_id, is_active=True)
         except Branch.DoesNotExist:
-            raise ObjectDoesNotExist("Branch not found")
+            raise ObjectDoesNotExist('Branch not found')
 
     @classmethod
     @transaction.atomic
@@ -146,10 +151,10 @@ class SchoolServices(BaseServices):
         :rtype: Branch
         """
         school = cls.get_school(school_id)
-        required_fields = {"name"}
+        required_fields = {'name'}
         data = cls._sanitize_and_validate_data(data, required_fields=required_fields)
-        if Branch.objects.filter(school=school, name=data.get("name")):
-            raise ValidationError("Branch already exists")
+        if Branch.objects.filter(school=school, name=data.get('name')):
+            raise ValidationError('Branch already exists')
         return Branch.objects.create(school=school, **data)
 
     @classmethod
@@ -165,12 +170,12 @@ class SchoolServices(BaseServices):
         """
         branch = cls.get_branch(branch_id, True)
         allowed_fields = {
-            "location",
-            "contact_email",
-            "contact_phone",
-            "principal_id",
-            "capacity",
-            "established_date",
+            'location',
+            'contact_email',
+            'contact_phone',
+            'principal_id',
+            'capacity',
+            'established_date',
         }
         data = cls._sanitize_and_validate_data(data, allowed_fields=allowed_fields)
         for k, v in data.items():
@@ -190,7 +195,7 @@ class SchoolServices(BaseServices):
         """
         branch = cls.get_branch(branch_id, True)
         branch.is_active = False
-        branch.save(update_fields=["is_active"])
+        branch.save(update_fields=['is_active'])
 
     @classmethod
     def get_branch_profile(cls, branch_id: str) -> dict:
@@ -203,18 +208,18 @@ class SchoolServices(BaseServices):
         """
         branch = cls.get_branch(branch_id)
         return {
-            "id": branch.id,
-            "name": branch.name,
-            "school_id": branch.school.id,
-            "school_name": branch.school.name,
-            "location": branch.location,
-            "contact_email": branch.contact_email,
-            "contact_phone": branch.contact_phone,
-            "principal_id": branch.principal.id if branch.principal else None,
-            "principal_name": branch.principal.full_name if branch.principal else None,
-            "capacity": branch.capacity,
-            "established_date": branch.established_date,
-            "is_active": branch.is_active,
+            'id': branch.id,
+            'name': branch.name,
+            'school_id': branch.school.id,
+            'school_name': branch.school.name,
+            'location': branch.location,
+            'contact_email': branch.contact_email,
+            'contact_phone': branch.contact_phone,
+            'principal_id': branch.principal.id if branch.principal else None,
+            'principal_name': branch.principal.full_name if branch.principal else None,
+            'capacity': branch.capacity,
+            'established_date': branch.established_date,
+            'is_active': branch.is_active,
         }
 
     @classmethod
@@ -240,13 +245,13 @@ class SchoolServices(BaseServices):
         :raises ValidationError: If classroom does not exist or is inactive.
         :rtype: Classroom
         """
-        qs = Classroom.objects.select_related("branch")
+        qs = Classroom.objects.select_related('branch')
         if select_for_update:
             qs = qs.select_for_update()
         try:
             return qs.get(id=classroom_id, is_active=True)
         except Classroom.DoesNotExist:
-            raise ObjectDoesNotExist("Classroom not found")
+            raise ObjectDoesNotExist('Classroom not found')
 
     @classmethod
     @transaction.atomic
@@ -260,10 +265,10 @@ class SchoolServices(BaseServices):
         :rtype: Classroom
         """
         branch = cls.get_branch(branch_id)
-        required_fields = {"name"}
+        required_fields = {'name'}
         data = cls._sanitize_and_validate_data(data, required_fields=required_fields)
-        if Classroom.objects.filter(branch=branch, name=data.get("name")).exists():
-            raise ValidationError("Classroom already exists in this branch")
+        if Classroom.objects.filter(branch=branch, name=data.get('name')).exists():
+            raise ValidationError('Classroom already exists in this branch')
         return Classroom.objects.create(branch=branch, **data)
 
     @classmethod
@@ -278,13 +283,13 @@ class SchoolServices(BaseServices):
         :rtype: Classroom
         """
         classroom = cls.get_classroom(classroom_id)
-        allowed_fields = {"branch_id", "name", "capacity"}
+        allowed_fields = {'branch_id', 'name', 'capacity'}
         data = cls._sanitize_and_validate_data(data, allowed_fields=allowed_fields)
-        if "name" in data:
-            if Classroom.objects.filter(branch=classroom.branch, name=data.get("name")).exclude(
+        if 'name' in data:
+            if Classroom.objects.filter(branch=classroom.branch, name=data.get('name')).exclude(
                 id=classroom_id
             ).exists():
-                raise ValidationError("Classroom name already exists in this branch")
+                raise ValidationError('Classroom name already exists in this branch')
         for k, v in data.items():
             setattr(classroom, k, v)
         classroom.save()
@@ -302,7 +307,7 @@ class SchoolServices(BaseServices):
         """
         classroom = cls.get_classroom(classroom_id, True)
         classroom.is_active = False
-        classroom.save(update_fields=["is_active"])
+        classroom.save(update_fields=['is_active'])
 
     @classmethod
     def get_classroom_profile(cls, classroom_id: str) -> dict:
@@ -315,12 +320,12 @@ class SchoolServices(BaseServices):
         """
         classroom = cls.get_classroom(classroom_id)
         return {
-            "id": classroom.id,
-            "name": classroom.name,
-            "capacity": classroom.capacity,
-            "branch_id": classroom.branch.id,
-            "branch_name": classroom.branch.name,
-            "is_active": classroom.is_active,
+            'id': classroom.id,
+            'name': classroom.name,
+            'capacity': classroom.capacity,
+            'branch_id': classroom.branch.id,
+            'branch_name': classroom.branch.name,
+            'is_active': classroom.is_active,
         }
 
     @classmethod

@@ -44,9 +44,9 @@ class EmailNotification(BaseNotification):
 
         for recipient in self.recipients:
             if not re.match(email_pattern, recipient):
-                raise ValidationError("Invalid email address")
+                raise ValidationError('Invalid email address')
 
         if not self.template.subject:
-            raise ValidationError("Email template requires a subject")
+            raise ValidationError('Email template requires a subject')
 
         return True

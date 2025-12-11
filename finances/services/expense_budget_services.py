@@ -45,35 +45,35 @@ class ExpenseBudgetServices(BaseServices):
         :return: Created expense budget instance.
         :rtype: ExpenseBudget
         """
-        required_fields = {"fiscal_year", "category_id", "budget_amount", "start_date", "end_date"}
-        field_types = {"budget_amount": float}
+        required_fields = {'fiscal_year', 'category_id', 'budget_amount', 'start_date', 'end_date'}
+        field_types = {'budget_amount': float}
         data = cls._sanitize_and_validate_data(
             data,
             required_fields=required_fields,
             field_types=field_types
         )
 
-        category = ExpenseCategory.objects.get(id=data["category_id"], is_active=True)
+        category = ExpenseCategory.objects.get(id=data['category_id'], is_active=True)
 
         department = None
-        if data.get("department_id"):
-            department = Department.objects.get(id=data["department_id"], is_active=True)
+        if data.get('department_id'):
+            department = Department.objects.get(id=data['department_id'], is_active=True)
 
         # Validate dates
-        start_date = data["start_date"]
-        end_date = data["end_date"]
+        start_date = data['start_date']
+        end_date = data['end_date']
         if end_date <= start_date:
-            raise ValidationError("End date must be after start date")
+            raise ValidationError('End date must be after start date')
 
         budget = ExpenseBudget.objects.create(
-            fiscal_year=data["fiscal_year"],
+            fiscal_year=data['fiscal_year'],
             category=category,
             department=department,
-            budget_amount=Decimal(str(data["budget_amount"])),
-            period=data.get("period", "annual"),
+            budget_amount=Decimal(str(data['budget_amount'])),
+            period=data.get('period', 'annual'),
             start_date=start_date,
             end_date=end_date,
-            notes=data.get("notes", ""),
+            notes=data.get('notes', ''),
             created_by=user
         )
 
@@ -96,31 +96,31 @@ class ExpenseBudgetServices(BaseServices):
         """
         budget = cls.get_expense_budget(budget_id, select_for_update=True)
 
-        field_types = {"budget_amount": float}
+        field_types = {'budget_amount': float}
         data = cls._sanitize_and_validate_data(data, field_types=field_types)
 
-        update_fields = ["updated_by"]
+        update_fields = ['updated_by']
 
-        if "budget_amount" in data:
-            budget.budget_amount = Decimal(str(data["budget_amount"]))
-            update_fields.append("budget_amount")
+        if 'budget_amount' in data:
+            budget.budget_amount = Decimal(str(data['budget_amount']))
+            update_fields.append('budget_amount')
 
-        if "start_date" in data:
-            budget.start_date = data["start_date"]
-            update_fields.append("start_date")
+        if 'start_date' in data:
+            budget.start_date = data['start_date']
+            update_fields.append('start_date')
 
-        if "end_date" in data:
-            budget.end_date = data["end_date"]
-            update_fields.append("end_date")
+        if 'end_date' in data:
+            budget.end_date = data['end_date']
+            update_fields.append('end_date')
 
-        if "notes" in data:
-            budget.notes = data["notes"]
-            update_fields.append("notes")
+        if 'notes' in data:
+            budget.notes = data['notes']
+            update_fields.append('notes')
 
         # Validate dates if either changed
-        if "start_date" in data or "end_date" in data:
+        if 'start_date' in data or 'end_date' in data:
             if budget.end_date <= budget.start_date:
-                raise ValidationError("End date must be after start date")
+                raise ValidationError('End date must be after start date')
 
         budget.updated_by = user
         budget.save(update_fields=update_fields)
@@ -141,7 +141,7 @@ class ExpenseBudgetServices(BaseServices):
         budget = cls.get_expense_budget(budget_id, select_for_update=True)
         budget.is_active = False
         budget.updated_by = user
-        budget.save(update_fields=["is_active", "updated_by"])
+        budget.save(update_fields=['is_active', 'updated_by'])
 
     @classmethod
     def fetch_expense_budget(cls, budget_id: str) -> dict:
@@ -160,25 +160,25 @@ class ExpenseBudgetServices(BaseServices):
         remaining_budget = budget.get_remaining_budget()
 
         return {
-            "id": str(budget.id),
-            "fiscal_year": budget.fiscal_year,
-            "category_id": str(budget.category.id),
-            "category_name": budget.category.name,
-            "category_full_path": budget.category.get_full_path(),
-            "department_id": str(budget.department.id) if budget.department else None,
-            "department_name": budget.department.name if budget.department else None,
-            "budget_amount": budget.budget_amount,
-            "spent_amount": spent_amount,
-            "remaining_budget": remaining_budget,
-            "utilization_percentage": round(utilization_percentage, 2),
-            "period": budget.period,
-            "start_date": budget.start_date,
-            "end_date": budget.end_date,
-            "notes": budget.notes,
-            "created_by_id": str(budget.created_by.id),
-            "created_by_full_name": budget.created_by.full_name,
-            "created_at": budget.created_at,
-            "updated_at": budget.updated_at,
+            'id': str(budget.id),
+            'fiscal_year': budget.fiscal_year,
+            'category_id': str(budget.category.id),
+            'category_name': budget.category.name,
+            'category_full_path': budget.category.get_full_path(),
+            'department_id': str(budget.department.id) if budget.department else None,
+            'department_name': budget.department.name if budget.department else None,
+            'budget_amount': budget.budget_amount,
+            'spent_amount': spent_amount,
+            'remaining_budget': remaining_budget,
+            'utilization_percentage': round(utilization_percentage, 2),
+            'period': budget.period,
+            'start_date': budget.start_date,
+            'end_date': budget.end_date,
+            'notes': budget.notes,
+            'created_by_id': str(budget.created_by.id),
+            'created_by_full_name': budget.created_by.full_name,
+            'created_at': budget.created_at,
+            'updated_at': budget.updated_at,
         }
 
     @classmethod
@@ -198,7 +198,7 @@ class ExpenseBudgetServices(BaseServices):
 
         qs = ExpenseBudget.objects.filter(**cleaned_filters)
 
-        budget_ids = qs.values_list("id", flat=True)
+        budget_ids = qs.values_list('id', flat=True)
         return [cls.fetch_expense_budget(budget_id) for budget_id in budget_ids]
 
     @classmethod
@@ -213,12 +213,12 @@ class ExpenseBudgetServices(BaseServices):
         """
         qs = ExpenseBudget.objects.filter(is_active=True)
 
-        if filters.get("fiscal_year"):
-            qs = qs.filter(fiscal_year=filters["fiscal_year"])
-        if filters.get("department_id"):
-            qs = qs.filter(department_id=filters["department_id"])
-        if filters.get("category_id"):
-            qs = qs.filter(category_id=filters["category_id"])
+        if filters.get('fiscal_year'):
+            qs = qs.filter(fiscal_year=filters['fiscal_year'])
+        if filters.get('department_id'):
+            qs = qs.filter(department_id=filters['department_id'])
+        if filters.get('category_id'):
+            qs = qs.filter(category_id=filters['category_id'])
 
         report = []
         for budget in qs:
@@ -226,25 +226,25 @@ class ExpenseBudgetServices(BaseServices):
             utilization_percentage = budget.get_utilization_percentage()
             remaining_budget = budget.get_remaining_budget()
 
-            status = "under_budget"
+            status = 'under_budget'
             if utilization_percentage >= 100:
-                status = "over_budget"
+                status = 'over_budget'
             elif utilization_percentage >= 80:
-                status = "near_limit"
+                status = 'near_limit'
 
             report.append({
-                "budget_id": str(budget.id),
-                "fiscal_year": budget.fiscal_year,
-                "category_name": budget.category.get_full_path(),
-                "department_name": budget.department.name if budget.department else "All Departments",
-                "budget_amount": budget.budget_amount,
-                "spent_amount": spent_amount,
-                "remaining_budget": remaining_budget,
-                "utilization_percentage": round(utilization_percentage, 2),
-                "status": status,
-                "period": budget.period,
-                "start_date": budget.start_date,
-                "end_date": budget.end_date,
+                'budget_id': str(budget.id),
+                'fiscal_year': budget.fiscal_year,
+                'category_name': budget.category.get_full_path(),
+                'department_name': budget.department.name if budget.department else 'All Departments',
+                'budget_amount': budget.budget_amount,
+                'spent_amount': spent_amount,
+                'remaining_budget': remaining_budget,
+                'utilization_percentage': round(utilization_percentage, 2),
+                'status': status,
+                'period': budget.period,
+                'start_date': budget.start_date,
+                'end_date': budget.end_date,
             })
 
         return report

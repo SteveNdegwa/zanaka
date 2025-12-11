@@ -21,21 +21,21 @@ from utils.common import validate_password
 class UserServices(BaseServices):
 
     profile_models = {
-        "student": StudentProfile,
-        "guardian": GuardianProfile,
-        "teacher": TeacherProfile,
-        "clerk": ClerkProfile,
-        "admin": AdminProfile,
+        'student': StudentProfile,
+        'guardian': GuardianProfile,
+        'teacher': TeacherProfile,
+        'clerk': ClerkProfile,
+        'admin': AdminProfile,
     }
 
     fk_mappings = {
-        "branch_id": ("schools.Branch", "branch"),
-        "classroom_id": ("schools.Classroom", "classroom"),
-        "role_name": ("users.Role", "role"),
-        "guardian_id": ("users.User", "guardian")
+        'branch_id': ('schools.Branch', 'branch'),
+        'classroom_id': ('schools.Classroom', 'classroom'),
+        'role_name': ('users.Role', 'role'),
+        'guardian_id': ('users.User', 'guardian')
     }
 
-    UNIQUE_FIELDS = ["username", "email", "reg_number"]
+    UNIQUE_FIELDS = ['username', 'reg_number']
 
     @classmethod
     def get_user_by_credential(cls, credential: str) -> tuple[Optional[User], Optional[str]]:
@@ -58,7 +58,7 @@ class UserServices(BaseServices):
         # Determine which field matched the credential
         for field in cls.UNIQUE_FIELDS:
             if getattr(user, field, None) == credential:
-                field_label = field.replace("_", " ").capitalize()
+                field_label = field.replace('_', '' '').capitalize()
                 return user, field_label
 
         return user, None
@@ -79,7 +79,7 @@ class UserServices(BaseServices):
             role = cls.get_role(role_name)
             filters &= Q(role=role)
 
-        qs = User.objects.select_related("role")
+        qs = User.objects.select_related('role')
         if select_for_update:
             qs = qs.select_for_update()
 
@@ -98,6 +98,24 @@ class UserServices(BaseServices):
         return Role.objects.get(name=role_name, is_active=True)
 
     @classmethod
+    def _validate_profile_uniqueness(cls, profile_model, profile_fields: dict) -> None:
+        """
+        Ensure unique fields in the profile model do not already exist.
+
+        :param profile_model: The profile model class.
+        :param profile_fields: Fields for the profile.
+        :raises ValidationError: If a unique field already exists.
+        """
+        role_label = profile_model.__name__
+        for field in profile_model._meta.fields:
+            if field.unique and field.name in profile_fields:
+                value = profile_fields[field.name]
+                if profile_model.objects.filter(**{field.name: value}, user__is_active=True).exists():
+                    raise ValidationError(
+                        f"{role_label} with {field.name}='{value}' already exists."
+                    )
+
+    @classmethod
     @transaction.atomic
     def create_user(cls, role_name: str, **data) -> User:
         """
@@ -109,7 +127,7 @@ class UserServices(BaseServices):
         :rtype: User
         """
         role = cls.get_role(role_name)
-        required_fields = {"first_name", "last_name", "date_of_birth", "branch_id"}
+        required_fields = {'first_name', 'last_name', 'date_of_birth', 'branch_id'}
         data = cls._sanitize_and_validate_data(data, required_fields=required_fields)
 
         user_field_names = {f.name for f in User._meta.get_fields()}
@@ -128,24 +146,6 @@ class UserServices(BaseServices):
         return user
 
     @classmethod
-    def _validate_profile_uniqueness(cls, profile_model, profile_fields: dict) -> None:
-        """
-        Ensure unique fields in the profile model do not already exist.
-
-        :param profile_model: The profile model class.
-        :param profile_fields: Fields for the profile.
-        :raises ValidationError: If a unique field already exists.
-        """
-        role_label = profile_model.__name__
-        for field in profile_model._meta.fields:
-            if field.unique and field.name in profile_fields:
-                value = profile_fields[field.name]
-                if profile_model.objects.filter(**{field.name: value}, user__is_active=True).exists():
-                    raise ValidationError(
-                        f'{role_label} with {field.name}="{value}" already exists.'
-                    )
-
-    @classmethod
     @transaction.atomic
     def update_user(cls, user_id: str, **data) -> User:
         """
@@ -159,11 +159,11 @@ class UserServices(BaseServices):
         user = cls.get_user(user_id, select_for_update=True)
 
         allowed_fields = {
-            "first_name", "last_name", "other_name", "date_of_birth",
-            "gender", "reg_number", "branch_id", "knec_number",
-            "nemis_number", "classroom_id", "medical_info",
-            "additional_info", "id_number", "phone_number", "email",
-            "occupation", "tsc_number",
+            'first_name', 'last_name', 'other_name', 'date_of_birth',
+            'gender', 'reg_number', 'branch_id', 'knec_number',
+            'nemis_number', 'classroom_id', 'medical_info',
+            'additional_info', 'id_number', 'phone_number', 'email',
+            'occupation', 'tsc_number',
         }
         data = cls._sanitize_and_validate_data(data, allowed_fields=allowed_fields)
 
@@ -175,6 +175,9 @@ class UserServices(BaseServices):
         if hasattr(user, f'{user.role.name.lower()}_profile'):
             profile = getattr(user, f'{user.role.name.lower()}_profile')
             profile_fields = {k: v for k, v in data.items() if k not in user_fields}
+            profile_model = cls.profile_models.get(user.role.name.lower())
+            if profile_model:
+                cls._validate_profile_uniqueness(profile_model, profile_fields)
             for field, value in profile_fields.items():
                 setattr(profile, field, value)
             profile.save()
@@ -192,7 +195,7 @@ class UserServices(BaseServices):
         """
         user = cls.get_user(user_id, select_for_update=True)
         user.is_active = False
-        user.save(update_fields=["is_active"])
+        user.save(update_fields=['is_active'])
 
     @classmethod
     def get_user_profile(cls, user_id: str) -> dict:
@@ -211,7 +214,7 @@ class UserServices(BaseServices):
             profile_data = {}
 
             for field in profile._meta.fields:
-                if field.name in {"id", "user"}:
+                if field.name in {'id', 'user'}:
                     continue
 
                 value = getattr(profile, field.name)
@@ -219,32 +222,33 @@ class UserServices(BaseServices):
                 if field.is_relation and field.many_to_one:
                     related_obj = value
                     if related_obj:
-                        profile_data[f"{field.name}_id"] = related_obj.id
-                        if hasattr(related_obj, "name"):
-                            profile_data[f"{field.name}_name"] = related_obj.name
+                        profile_data[f'{field.name}_id'] = related_obj.id
+                        if hasattr(related_obj, 'name'):
+                            profile_data[f'{field.name}_name'] = related_obj.name
                     else:
                         profile_data[field.name] = None
                 else:
                     profile_data[field.name] = value
 
         user_data = {
-            "id": user.id,
-            "username": user.username,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "other_name": user.other_name,
-            "gender": user.gender,
-            "reg_number": user.reg_number,
-            "date_of_birth": user.date_of_birth,
-            "role_id": user.role.id,
-            "role_name": user.role.name,
-            "branch_id": user.branch.id,
-            "branch_name": user.branch.name,
-            "is_active": user.is_active,
-            "is_superuser": user.is_superuser,
-            "permissions": user.permissions,
-            "created_at": user.created_at,
-            "updated_at": user.updated_at,
+            'id': user.id,
+            'username': user.username,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'other_name': user.other_name,
+            'gender': user.gender,
+            'reg_number': user.reg_number,
+            'date_of_birth': user.date_of_birth,
+            'role_id': user.role.id,
+            'role_name': user.role.name,
+            'branch_id': user.branch.id if user.branch else None,
+            'branch_name': user.branch.name if user.branch else None,
+            'is_active': user.is_active,
+            'is_superuser': user.is_superuser,
+            'force_pass_reset': user.force_pass_reset,
+            'permissions': user.permissions,
+            'created_at': user.created_at,
+            'updated_at': user.updated_at,
         }
 
         return {**user_data, **profile_data}
@@ -254,48 +258,48 @@ class UserServices(BaseServices):
         """
         Filter active users by user or profile fields with optional search term.
 
-        :param filters: Dictionary of fields to filter on, may include "search".
+        :param filters: Dictionary of fields to filter on, may include 'search'.
         :raises ValidationError: If role is missing when filtering by profile fields.
         :rtype: list[dict]
         """
         filters = cls._sanitize_and_validate_data(filters)
 
-        search_term = filters.pop("search", None)
+        search_term = filters.pop('search', None)
 
         user_field_names = set(User._meta.fields_map.keys())
         user_filters = {k: v for k, v in filters.items() if k in user_field_names}
         profile_filters = {k: v for k, v in filters.items() if k not in user_field_names}
 
-        qs = User.objects.filter(is_active=True, **user_filters).select_related("role", "branch")
+        qs = User.objects.filter(is_active=True, **user_filters).select_related('role', 'branch')
 
         if profile_filters:
-            role = filters.get("role")
+            role = filters.get('role')
             if not role:
-                raise ValidationError("Role is required when filtering by profile fields")
-            qs = qs.filter(**{f"{role.name.lower()}_profile__{k}": v for k, v in profile_filters.items()})
+                raise ValidationError('Role is required when filtering by profile fields')
+            qs = qs.filter(**{f'{role.name.lower()}_profile__{k}': v for k, v in profile_filters.items()})
 
         if search_term:
-            role = filters.get("role")
+            role = filters.get('role')
             search_q = Q()
             for field in User._meta.fields:
                 if field.is_relation and field.many_to_one:
-                    search_q |= Q(**{f"{field.name}_id__icontains": search_term})
-                    if hasattr(field.related_model, "name"):
-                        search_q |= Q(**{f"{field.name}__name__icontains": search_term})
-                elif not field.is_relation and field.get_internal_type() in ["CharField", "TextField"]:
-                    search_q |= Q(**{f"{field.name}__icontains": search_term})
+                    search_q |= Q(**{f'{field.name}_id__icontains': search_term})
+                    if hasattr(field.related_model, 'name'):
+                        search_q |= Q(**{f'{field.name}__name__icontains': search_term})
+                elif not field.is_relation and field.get_internal_type() in ['CharField', 'TextField']:
+                    search_q |= Q(**{f'{field.name}__icontains': search_term})
 
             if role:
-                profile_model = f"{role.name.lower()}_profile"
+                profile_model = f'{role.name.lower()}_profile'
                 model_class = getattr(User, profile_model).field.related_model
 
                 for field in model_class._meta.fields:
                     if field.is_relation and field.many_to_one:
-                        search_q |= Q(**{f"{profile_model}__{field.name}_id__icontains": search_term})
-                        if hasattr(field.related_model, "name"):
-                            search_q |= Q(**{f"{profile_model}__{field.name}__name__icontains": search_term})
-                    elif not field.is_relation and field.get_internal_type() in ["CharField", "TextField"]:
-                        search_q |= Q(**{f"{profile_model}__{field.name}__icontains": search_term})
+                        search_q |= Q(**{f'{profile_model}__{field.name}_id__icontains': search_term})
+                        if hasattr(field.related_model, 'name'):
+                            search_q |= Q(**{f'{profile_model}__{field.name}__name__icontains': search_term})
+                    elif not field.is_relation and field.get_internal_type() in ['CharField', 'TextField']:
+                        search_q |= Q(**{f'{profile_model}__{field.name}__icontains': search_term})
 
             qs = qs.filter(search_q)
 
@@ -308,18 +312,18 @@ class UserServices(BaseServices):
         Link a guardian to a student.
 
         :param student_id: ID of the student.
-        :param data: "guardian_id" and "relationship" fields.
+        :param data: 'guardian_id' and 'relationship' fields.
         :raises ValidationError: If guardian already linked or required fields missing.
         :rtype: StudentGuardian
         """
         student = cls.get_user(student_id, role_name=RoleName.STUDENT)
-        required_fields = {"guardian_id", "relationship"}
+        required_fields = {'guardian_id', 'relationship'}
         data = cls._sanitize_and_validate_data(data, required_fields=required_fields)
-        data.setdefault("is_primary", False)
-        data.setdefault("can_receive_reports", True)
-        if data.get("is_primary"): data["can_receive_reports"] = True
-        if StudentGuardian.objects.filter(student=student, guardian=data.get("guardian"), is_active=True).exists():
-            raise ValidationError("Guardian already linked to student")
+        data.setdefault('is_primary', False)
+        data.setdefault('can_receive_reports', True)
+        if data.get('is_primary'): data['can_receive_reports'] = True
+        if StudentGuardian.objects.filter(student=student, guardian=data.get('guardian'), is_active=True).exists():
+            raise ValidationError('Guardian already linked to student')
         return StudentGuardian.objects.create(student=student, **data)
 
     @classmethod
@@ -337,9 +341,9 @@ class UserServices(BaseServices):
         try:
             sg = StudentGuardian.objects.get(student=student, guardian=guardian, is_active=True)
         except StudentGuardian.DoesNotExist:
-            raise ValidationError("Guardian not linked to student")
+            raise ValidationError('Guardian not linked to student')
         sg.is_active = False
-        sg.save(update_fields=["is_active"])
+        sg.save(update_fields=['is_active'])
 
     @classmethod
     def filter_guardians_for_student(cls, student_id: str, **filters) -> list[dict]:
@@ -355,15 +359,15 @@ class UserServices(BaseServices):
             student=student,
             is_active=True,
             **filters
-        ).select_related("guardian")
+        ).select_related('guardian')
 
         return [
             {
-                "guardian_id": sg.guardian.id,
-                "guardian_name": sg.guardian.full_name,
-                "relationship": sg.relationship,
-                "is_primary": sg.is_primary,
-                "can_receive_reports": sg.can_receive_reports,
+                'guardian_id': sg.guardian.id,
+                'guardian_name': sg.guardian.full_name,
+                'relationship': sg.relationship,
+                'is_primary': sg.is_primary,
+                'can_receive_reports': sg.can_receive_reports,
             }
             for sg in qs
         ]
@@ -380,10 +384,13 @@ class UserServices(BaseServices):
         :raises Exception: If the user is not found.
         """
         user, _ = cls.get_user_by_credential(credential)
+        if not user:
+            raise ObjectDoesNotExist('User not found')
         user.reset_password()
         return None
 
     @classmethod
+    @transaction.atomic
     def reset_password(cls, user_id: str) -> None:
         """
         Reset a user's password using their ID and send it via Email.
@@ -398,29 +405,31 @@ class UserServices(BaseServices):
         return None
 
     @classmethod
-    def change_password(cls, user_id: str, new_password: str, old_password: str) -> None:
+    @transaction.atomic
+    def change_password(cls, user_id: str, current_password: str, new_password: str) -> None:
         """
         Change a user's password after verifying the old password.
 
         :param user_id: The ID of the user.
         :type user_id: str
+        :param current_password: The current password for verification.
+        :type current_password: str
         :param new_password: The new password.
         :type new_password: str
-        :param old_password: The current password for verification.
-        :type old_password: str
         :return: None
         :raises ValueError: If the user is not found or the old password is incorrect.
         """
         user = cls.get_user(user_id)
 
-        if not user.check_password(old_password):
-            raise ValidationError("Incorrect password")
+        if not user.check_password(current_password):
+            raise ValidationError('Incorrect password')
 
         valid, error = validate_password(new_password)
         if not valid:
             raise ValidationError(error)
 
         user.set_password(new_password)
+        user.force_pass_reset = False
         user.save()
 
         return None

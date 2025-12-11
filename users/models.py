@@ -1,5 +1,4 @@
 import re
-import logging
 
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.hashers import make_password, identify_hasher
@@ -14,15 +13,32 @@ from base.models import GenericBaseModel, BaseModel
 from users.managers import CustomUserManager
 from utils.common import generate_random_password
 
-logger = logging.getLogger(__name__)
-
 
 class RoleName(models.TextChoices):
-    STUDENT = 'student', _('Student')
-    GUARDIAN = 'guardian', _('Guardian')
-    TEACHER = 'teacher', _('Teacher')
-    CLERK = 'clerk', _('Clerk')
-    ADMIN = 'admin', _('Admin')
+    STUDENT = 'STUDENT', _('Student')
+    GUARDIAN = 'GUARDIAN', _('Guardian')
+    TEACHER = 'TEACHER', _('Teacher')
+    CLERK = 'CLERK', _('Clerk')
+    ADMIN = 'ADMIN', _('Admin')
+
+
+class Gender(models.TextChoices):
+    MALE = 'MALE', _('Male')
+    FEMALE = 'FEMALE', _('Female')
+    OTHER = 'OTHER', _('Other')
+
+
+class GuardianRelationship(models.TextChoices):
+    FATHER = 'FATHER', _('Father')
+    MOTHER = 'MOTHER', _('Mother')
+    GUARDIAN = 'GUARDIAN', _('Guardian')
+    UNCLE = 'UNCLE', _('Uncle')
+    AUNT = 'AUNT', _('Aunt')
+    BROTHER = 'BROTHER', _('Brother')
+    SISTER = 'SISTER', _('Sister')
+    GRANDFATHER = 'GRANDFATHER', _('Grandfather')
+    GRANDMOTHER = 'GRANDMOTHER', _('Grandmother')
+    OTHER = 'OTHER', _('Other')
 
 
 class Role(GenericBaseModel):
@@ -43,14 +59,14 @@ class Role(GenericBaseModel):
             models.Index(fields=['name', 'is_active']),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
 
 class Permission(GenericBaseModel):
     is_active = models.BooleanField(default=True, verbose_name=_('Is active'))
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
     class Meta:
@@ -79,7 +95,7 @@ class RolePermission(BaseModel):
     )
     is_active = models.BooleanField(default=True, verbose_name=_('Is active'))
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.role} - {self.permission}'
 
     class Meta:
@@ -109,7 +125,7 @@ class ExtendedPermission(BaseModel):
     )
     is_active = models.BooleanField(default=True, verbose_name=_('Is active'))
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.user} - {self.permission.name}'
 
     class Meta:
@@ -123,11 +139,6 @@ class ExtendedPermission(BaseModel):
 
 
 class User(BaseModel, AbstractBaseUser, PermissionsMixin):
-    class Gender(models.TextChoices):
-        MALE = 'male', _('Male')
-        FEMALE = 'female', _('Female')
-        OTHER = 'other', _('Other')
-
     username = models.CharField(max_length=150, unique=True, verbose_name=_('Username'))
     first_name = models.CharField(max_length=150, blank=True, verbose_name=_('First name'))
     last_name = models.CharField(max_length=150, blank=True, verbose_name=_('Last name'))
@@ -160,6 +171,10 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
         verbose_name=_('Active'),
         help_text=_('Designates whether this user should be treated as active.')
     )
+    force_pass_reset = models.BooleanField(
+        default=False,
+        help_text="User must update password on next login."
+    )
     last_activity = models.DateTimeField(
         null=True,
         blank=True,
@@ -169,7 +184,7 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
 
     USERNAME_FIELD = 'username'
 
-    manager = CustomUserManager()
+    objects = CustomUserManager()
 
     class Meta:
         verbose_name = _('User')
@@ -179,15 +194,15 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
             models.Index(fields=['username', 'is_active']),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.full_name} ({self.role.name})'
 
-    def update_last_activity(self):
+    def update_last_activity(self) -> None:
         self.last_activity = timezone.now()
         self.save()
 
     @property
-    def full_name(self):
+    def full_name(self) -> str:
         parts = [self.first_name, self.other_name, self.last_name]
         return ' '.join(filter(None, parts))
 
@@ -250,24 +265,26 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
 
         return f'{prefix}-{str(new_number).zfill(4)}'
 
-    def reset_password(self):
+    def reset_password(self) -> None:
         if not self.role.can_login:
             raise PermissionDenied()
         new_password = generate_random_password()
         self.password = make_password(new_password)
-        self.save()
+        self.force_pass_reset = True
 
         from notifications.services.notification_services import NotificationServices
         from notifications.models import NotificationType
-        notification_context = {"name": self.first_name, "new_password": new_password}
+        notification_context = {'name': self.first_name, 'password': new_password}
         NotificationServices.send_notification(
             user=self,
             notification_type=NotificationType.EMAIL,
-            template_name="email_reset_password",
+            template_name='email_reset_password',
             context=notification_context
         )
 
-    def save(self, *args, **kwargs):
+        self.save()
+
+    def save(self, *args, **kwargs) -> None:
         notification_context = {}
 
         # Ensure role is provided
@@ -276,7 +293,10 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
 
         # Ensure first name is provided
         if not self.first_name:
-            raise ValueError("User's first name must be provided")
+            if not self.is_superuser:
+                raise ValueError("User's first name must be provided")
+            else:
+                self.first_name = self.username.title().strip()
 
         # Generate username if not provided
         if not self.username:
@@ -315,7 +335,7 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
             )
 
     @property
-    def permissions(self):
+    def permissions(self) -> list[str]:
         if self.is_superuser:
             return list(
                 Permission.objects.filter(is_active=True)
@@ -338,23 +358,11 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
 
         return permissions
 
-    def has_permission(self, permission_name):
+    def has_permission(self, permission_name) -> bool:
         return permission_name in self.permissions
 
 
 class StudentGuardian(BaseModel):
-    class Relationship(models.TextChoices):
-        FATHER = 'father', _('Father')
-        MOTHER = 'mother', _('Mother')
-        GUARDIAN = 'guardian', _('Guardian')
-        UNCLE = 'uncle', _('Uncle')
-        AUNT = 'aunt', _('Aunt')
-        BROTHER = 'brother', _('Brother')
-        SISTER = 'sister', _('Sister')
-        GRANDFATHER = 'grandfather', _('Grandfather')
-        GRANDMOTHER = 'grandmother', _('Grandmother')
-        OTHER = 'other', _('Other')
-
     student = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -370,8 +378,8 @@ class StudentGuardian(BaseModel):
     relationship = models.CharField(
         max_length=20,
         blank=True,
-        choices=Relationship.choices,
-        default=Relationship.OTHER,
+        choices=GuardianRelationship.choices,
+        default=GuardianRelationship.OTHER,
         verbose_name=_('Relationship'),
         help_text=_("The guardian's relationship to the student."),
     )
@@ -393,10 +401,10 @@ class StudentGuardian(BaseModel):
         verbose_name_plural = _('Student guardians')
         ordering = ('-created_at',)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.guardian} - {self.relationship} of {self.student}'
 
-    def save(self, *args, **kwargs):
+    def save(self, *args, **kwargs) -> None:
         if self.is_primary:
             self.receive_notifications = True
 
@@ -439,17 +447,17 @@ class StudentProfile(BaseModel):
         verbose_name_plural = _('Student Profiles')
         ordering = ('-created_at',)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'Profile for {self.user}'
 
-    def clean(self):
+    def clean(self) -> None:
         if self.user.role.name != RoleName.STUDENT:
             raise ValidationError(_("User must have role 'student' for StudentProfile."))
         if self.classroom and self.user.branch != self.classroom.branch:
             raise ValidationError(_("Classroom must belong to the user's branch."))
 
     @property
-    def guardians(self):
+    def guardians(self) -> list[User]:
         relationships = StudentGuardian.objects.filter(
             student=self.user,
             is_active=True
@@ -474,10 +482,10 @@ class GuardianProfile(BaseModel):
         verbose_name_plural = _('Guardian Profiles')
         ordering = ('-created_at',)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'Guardian Profile for {self.user}'
 
-    def clean(self):
+    def clean(self) -> None:
         if self.user.role.name != RoleName.GUARDIAN:
             raise ValidationError(_("User must have role 'guardian' for GuardianProfile."))
 
@@ -499,10 +507,10 @@ class TeacherProfile(BaseModel):
         verbose_name_plural = _('Teacher Profiles')
         ordering = ('-created_at',)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'Profile for {self.user}'
 
-    def clean(self):
+    def clean(self) -> None:
         if self.user.role.name != RoleName.TEACHER:
             raise ValidationError(_("User must have role 'teacher' for TeacherProfile."))
 
@@ -523,10 +531,10 @@ class ClerkProfile(BaseModel):
         verbose_name_plural = _('Clerk Profiles')
         ordering = ('-created_at',)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'Profile for {self.user}'
 
-    def clean(self):
+    def clean(self) -> None:
         if self.user.role.name != RoleName.CLERK:
             raise ValidationError(_("User must have role 'clerk' for ClerkProfile."))
 
@@ -547,10 +555,10 @@ class AdminProfile(BaseModel):
         verbose_name_plural = _('Admin Profiles')
         ordering = ('-created_at',)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'Profile for {self.user}'
 
-    def clean(self):
+    def clean(self) -> None:
         if self.user.role.name != RoleName.ADMIN:
             raise ValidationError(_("User must have role 'admin' for AdminProfile."))
 
@@ -561,7 +569,7 @@ class Device(BaseModel):
     last_activity = models.DateTimeField(null=True, blank=True, editable=False)
     is_active = models.BooleanField(default=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         status = 'Active' if self.is_active else 'Inactive'
         return f'{self.user.username} ({status})'
 

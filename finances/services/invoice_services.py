@@ -17,9 +17,9 @@ class InvoiceServices(BaseServices):
     """
 
     fk_mappings = {
-        "student_id": ("users.User", "student"),
-        "created_by_id": ("users.User", "created_by"),
-        "updated_by_id": ("users.User", "updated_by"),
+        'student_id': ('users.User', 'student'),
+        'created_by_id': ('users.User', 'created_by'),
+        'updated_by_id': ('users.User', 'updated_by'),
     }
 
     @classmethod
@@ -71,8 +71,8 @@ class InvoiceServices(BaseServices):
         """
         student = UserServices.get_user(user_id=student_id, role_name=RoleName.STUDENT)
 
-        required_fields = {"due_date", "invoice_items"}
-        field_types = {"priority": int, "invoice_items": list}
+        required_fields = {'due_date', 'invoice_items'}
+        field_types = {'priority': int, 'invoice_items': list}
         data = cls._sanitize_and_validate_data(
             data,
             required_fields=required_fields,
@@ -81,20 +81,20 @@ class InvoiceServices(BaseServices):
 
         invoice = Invoice.objects.create(
             student=student,
-            priority=data.get("priority") or 1,
-            due_date=data.get("due_date"),
+            priority=data.get('priority') or 1,
+            due_date=data.get('due_date'),
             created_by=user,
-            notes=data.get("notes")
+            notes=data.get('notes')
         )
 
-        for item_data in data.get("invoice_items"):
-            fee_item_id = item_data.get("fee_item_id")
-            unit_price = item_data.get("unit_price")
-            quantity = item_data.get("quantity")
-            description = item_data.get("description")
+        for item_data in data.get('invoice_items'):
+            fee_item_id = item_data.get('fee_item_id')
+            unit_price = item_data.get('unit_price')
+            quantity = item_data.get('quantity')
+            description = item_data.get('description')
 
-            required_fields = {"quantity"}
-            field_types = {"unit_price": float, "quantity": int}
+            required_fields = {'quantity'}
+            field_types = {'unit_price': float, 'quantity': int}
             item_data = cls._sanitize_and_validate_data(
                 item_data,
                 required_fields=required_fields,
@@ -106,13 +106,13 @@ class InvoiceServices(BaseServices):
                 fee_item = FeeItem.objects.get(id=fee_item_id, is_active=True)
                 grade_level_fee = GradeLevelFee.objects.filter(
                     fee_item=fee_item,
-                    grade_level=item_data.get("grade_level"),
-                    term=item_data.get("term"),
-                    academic_year=item_data.get("academic_year")
+                    grade_level=item_data.get('grade_level'),
+                    term=item_data.get('term'),
+                    academic_year=item_data.get('academic_year')
                 ).first()
                 unit_price = grade_level_fee.amount if grade_level_fee else fee_item.default_amount
             elif not unit_price:
-                raise ValidationError("Fee item or unit price must be provided")
+                raise ValidationError('Fee item or unit price must be provided')
 
             amount = unit_price * quantity
 
@@ -145,30 +145,30 @@ class InvoiceServices(BaseServices):
         """
         invoice = cls.get_invoice(invoice_id, select_for_update=True)
 
-        required_fields = {"due_date", "invoice_items"}
-        field_types = {"priority": int, "invoice_items": list}
+        required_fields = {'due_date', 'invoice_items'}
+        field_types = {'priority': int, 'invoice_items': list}
         data = cls._sanitize_and_validate_data(
             data,
             required_fields=required_fields,
             field_types=field_types
         )
 
-        invoice.priority = data.get("priority") or 1
-        invoice.due_date = data.get("due_date")
-        invoice.notes = data.get("notes")
+        invoice.priority = data.get('priority') or 1
+        invoice.due_date = data.get('due_date')
+        invoice.notes = data.get('notes')
         invoice.updated_by = user
-        invoice.save(update_fields=["priority", "due_date", "notes", "updated_by"])
+        invoice.save(update_fields=['priority', 'due_date', 'notes', 'updated_by'])
 
         InvoiceItem.objects.filter(invoice=invoice, is_active=True).update(is_active=False)
 
-        for item_data in data.get("invoice_items"):
-            fee_item_id = item_data.get("fee_item_id")
-            unit_price = item_data.get("unit_price")
-            quantity = item_data.get("quantity")
-            description = item_data.get("description")
+        for item_data in data.get('invoice_items'):
+            fee_item_id = item_data.get('fee_item_id')
+            unit_price = item_data.get('unit_price')
+            quantity = item_data.get('quantity')
+            description = item_data.get('description')
 
-            required_fields = {"quantity"}
-            field_types = {"unit_price": float, "quantity": int}
+            required_fields = {'quantity'}
+            field_types = {'unit_price': float, 'quantity': int}
             item_data = cls._sanitize_and_validate_data(
                 item_data,
                 required_fields=required_fields,
@@ -180,13 +180,13 @@ class InvoiceServices(BaseServices):
                 fee_item = FeeItem.objects.get(id=fee_item_id, is_active=True)
                 grade_level_fee = GradeLevelFee.objects.filter(
                     fee_item=fee_item,
-                    grade_level=item_data.get("grade_level"),
-                    term=item_data.get("term"),
-                    academic_year=item_data.get("academic_year")
+                    grade_level=item_data.get('grade_level'),
+                    term=item_data.get('term'),
+                    academic_year=item_data.get('academic_year')
                 ).first()
                 unit_price = grade_level_fee.amount if grade_level_fee else fee_item.default_amount
             elif not unit_price:
-                raise ValidationError("Fee item or unit price must be provided")
+                raise ValidationError('Fee item or unit price must be provided')
 
             InvoiceItem.objects.create(
                 invoice=invoice,
@@ -221,7 +221,7 @@ class InvoiceServices(BaseServices):
 
         invoice.status = InvoiceStatus.CANCELLED
         invoice.updated_by = user
-        invoice.save(update_fields=["status", "updated_by"])
+        invoice.save(update_fields=['status', 'updated_by'])
 
         return invoice
 
@@ -241,11 +241,11 @@ class InvoiceServices(BaseServices):
         """
         invoice = cls.get_invoice(invoice_id=invoice_id, select_for_update=True)
         if invoice.status != InvoiceStatus.CANCELLED:
-            raise ValidationError("Invoice already active")
+            raise ValidationError('Invoice already active')
 
         invoice.status = InvoiceStatus.PENDING
         invoice.updated_by = user
-        invoice.save(update_fields=["status", "updated_by"])
+        invoice.save(update_fields=['status', 'updated_by'])
 
         return invoice
 
@@ -271,38 +271,38 @@ class InvoiceServices(BaseServices):
             PaymentAllocation.objects
             .filter(invoice=invoice, is_active=True)
             .annotate(
-                payment_reference=F("payment__payment_reference"),
-                payment_method=F("payment__payment_method"),
+                payment_reference=F('payment__payment_reference'),
+                payment_method=F('payment__payment_method'),
             )
             .values()
         )
 
         return {
-            "id": str(invoice.id),
-            "invoice_reference": invoice.invoice_reference,
-            "student_id": str(invoice.student.id),
-            "student_reg_number": invoice.student.reg_number,
-            "student_full_name": invoice.student.full_name,
-            "student_classroom_id": str(invoice.student.classroom.id),
-            "student_classroom_name": invoice.student.classroom.name,
-            "total_amount": invoice.total_amount,
-            "paid_amount": invoice.paid_amount,
-            "balance": invoice.balance,
-            "priority": invoice.priority,
-            "due_date": invoice.due_date,
-            "created_by_id": str(invoice.created_by.id),
-            "created_by_reg_number": invoice.created_by.reg_number,
-            "created_by_full_name": invoice.created_by.full_name,
-            "updated_by_id": str(invoice.updated_by.id),
-            "updated_by_reg_number": invoice.updated_by.reg_number,
-            "updated_by_full_name": invoice.updated_by.full_name,
-            "notes": invoice.notes,
-            "is_auto_generated": invoice.is_auto_generated,
-            "status": invoice.status,
-            "created_at": invoice.created_at,
-            "updated_at": invoice.updated_at,
-            "invoice_items": invoice_items,
-            "payments": payments
+            'id': str(invoice.id),
+            'invoice_reference': invoice.invoice_reference,
+            'student_id': str(invoice.student.id),
+            'student_reg_number': invoice.student.reg_number,
+            'student_full_name': invoice.student.full_name,
+            'student_classroom_id': str(invoice.student.classroom.id),
+            'student_classroom_name': invoice.student.classroom.name,
+            'total_amount': invoice.total_amount,
+            'paid_amount': invoice.paid_amount,
+            'balance': invoice.balance,
+            'priority': invoice.priority,
+            'due_date': invoice.due_date,
+            'created_by_id': str(invoice.created_by.id),
+            'created_by_reg_number': invoice.created_by.reg_number,
+            'created_by_full_name': invoice.created_by.full_name,
+            'updated_by_id': str(invoice.updated_by.id),
+            'updated_by_reg_number': invoice.updated_by.reg_number,
+            'updated_by_full_name': invoice.updated_by.full_name,
+            'notes': invoice.notes,
+            'is_auto_generated': invoice.is_auto_generated,
+            'status': invoice.status,
+            'created_at': invoice.created_at,
+            'updated_at': invoice.updated_at,
+            'invoice_items': invoice_items,
+            'payments': payments
         }
 
     @classmethod
@@ -315,7 +315,7 @@ class InvoiceServices(BaseServices):
         :return: List of invoice dictionaries matching filters.
         :rtype: list[dict]
         """
-        field_types = {"priority": int}
+        field_types = {'priority': int}
         filters = cls._sanitize_and_validate_data(filters, field_types=field_types)
 
         invoice_field_names = set(Invoice._meta.fields_map.keys())
@@ -323,22 +323,22 @@ class InvoiceServices(BaseServices):
 
         qs = Invoice.objects.filter(**cleaned_filters)
 
-        search_term = filters.get("search_term")
+        search_term = filters.get('search_term')
         if search_term:
             fields = [
-                "invoice_reference",
-                "student__id",
-                "student__reg_number",
-                "student__first_name",
-                "student__last_name",
-                "status",
+                'invoice_reference',
+                'student__id',
+                'student__reg_number',
+                'student__first_name',
+                'student__last_name',
+                'status',
             ]
             search_q = Q()
 
             for field in fields:
-                search_q |= Q(**{f"{field}__icontains": search_term})
+                search_q |= Q(**{f'{field}__icontains': search_term})
 
             qs = qs.filter(search_q)
 
-        invoice_ids = qs.values_list("id", flat=True)
+        invoice_ids = qs.values_list('id', flat=True)
         return [cls.fetch_invoice(invoice_id) for invoice_id in invoice_ids]

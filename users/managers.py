@@ -10,7 +10,7 @@ class CustomUserManager(BaseUserManager):
 
     def _create_user(self, username, password, **extra_fields):
         role_model = apps.get_model('users', 'Role')
-        default_role, _ = role_model.objects.get_or_create(name='admin')
+        default_role, _ = role_model.objects.get_or_create(name='ADMIN', can_login=True)
         extra_fields.setdefault('role', default_role)
 
         username = self.model.normalize_username(username)

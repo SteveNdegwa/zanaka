@@ -16,8 +16,8 @@ class PaymentServices(BaseServices):
     """
 
     fk_mappings = {
-        "student_id": ("users.User", "student"),
-        "verified_by_id": ("users.User", "verified_by"),
+        'student_id': ('users.User', 'student'),
+        'verified_by_id': ('users.User', 'verified_by'),
     }
 
     @classmethod
@@ -73,31 +73,31 @@ class PaymentServices(BaseServices):
             role_name=RoleName.STUDENT
         )
 
-        required_fields = {"payment_method", "amount"}
-        field_types = {"amount": float}
+        required_fields = {'payment_method', 'amount'}
+        field_types = {'amount': float}
         data = cls._sanitize_and_validate_data(
             data,
             required_fields=required_fields,
             field_types=field_types
         )
 
-        payment_method = data.get("payment_method")
+        payment_method = data.get('payment_method')
         if payment_method not in PaymentMethod.values:
-            raise ValidationError("Invalid payment method")
+            raise ValidationError('Invalid payment method')
 
         if payment_method == PaymentMethod.MPESA:
-            required_fields = {"mpesa_receipt_number", "mpesa_phone_number", "mpesa_transaction_date"}
+            required_fields = {'mpesa_receipt_number', 'mpesa_phone_number', 'mpesa_transaction_date'}
             for field in required_fields:
                 if not data.get(field):
-                    field_name = field.replace("_", " ").capitalize()
-                    raise ValidationError(f"{field_name} must be provided")
+                    field_name = field.replace('_', """ """).capitalize()
+                    raise ValidationError(f'{field_name} must be provided')
 
         elif payment_method == PaymentMethod.BANK:
-            required_fields = {"bank_reference", "bank_name"}
+            required_fields = {'bank_reference', 'bank_name'}
             for field in required_fields:
                 if not data.get(field):
-                    field_name = field.replace("_", " ").capitalize()
-                    raise ValidationError(f"{field_name} must be provided")
+                    field_name = field.replace('_', """ """).capitalize()
+                    raise ValidationError(f'{field_name} must be provided')
 
         payment = Payment.objects.create(
             **data,
@@ -120,7 +120,7 @@ class PaymentServices(BaseServices):
         """
         payment = cls.get_payment(payment_id=payment_id, select_for_update=True)
         payment.status = PaymentStatus.REVERSED
-        payment.save(update_fields=["status"])
+        payment.save(update_fields=['status'])
 
     @classmethod
     def fetch_payment(cls, payment_id: str) -> dict:
@@ -138,12 +138,12 @@ class PaymentServices(BaseServices):
             PaymentAllocation.objects
             .filter(payment=payment, is_active=True)
             .annotate(
-                invoice_reference=F("invoice__invoice_reference"),
-                invoice_total_amount=F("invoice__total_amount"),
-                invoice_paid_amount=F("invoice__paid_amount"),
-                invoice_balancet=F("invoice__balance"),
-                invoice_due_date=F("invoice__due_date"),
-                invoice_status=F("invoice__status"),
+                invoice_reference=F('invoice__invoice_reference'),
+                invoice_total_amount=F('invoice__total_amount'),
+                invoice_paid_amount=F('invoice__paid_amount'),
+                invoice_balancet=F('invoice__balance'),
+                invoice_due_date=F('invoice__due_date'),
+                invoice_status=F('invoice__status'),
             )
             .values()
         )
@@ -155,30 +155,30 @@ class PaymentServices(BaseServices):
         )
 
         return {
-            "id": str(payment.id),
-            "payment_reference": payment.payment_reference,
-            "student_id": str(payment.student.id),
-            "student_reg_number": payment.student.reg_number,
-            "student_full_name": payment.student.full_name,
-            "payment_method": payment.payment_method,
-            "amount": payment.amount,
-            "utilized_amount": payment.utilized_amount,
-            "mpesa_receipt_number": payment.mpesa_receipt_number,
-            "mpesa_phone_number": payment.mpesa_phone_number,
-            "mpesa_transaction_date": payment.mpesa_transaction_date,
-            "bank_reference": payment.bank_reference,
-            "bank_name": payment.bank_name,
-            "transaction_id": payment.transaction_id,
-            "verified_at": payment.verified_at,
-            "verified_by_id": str(payment.verified_by.id),
-            "verified_by_reg_number": payment.verified_by.reg_number,
-            "verified_by_full_name": payment.verified_by.full_name,
-            "notes": payment.notes,
-            "metadata": payment.metadata,
-            "status": payment.status,
-            "created_at": payment.created_at,
-            "payment_allocations": allocations,
-            "mpesa_transactions": mpesa_transactions
+            'id': str(payment.id),
+            'payment_reference': payment.payment_reference,
+            'student_id': str(payment.student.id),
+            'student_reg_number': payment.student.reg_number,
+            'student_full_name': payment.student.full_name,
+            'payment_method': payment.payment_method,
+            'amount': payment.amount,
+            'utilized_amount': payment.utilized_amount,
+            'mpesa_receipt_number': payment.mpesa_receipt_number,
+            'mpesa_phone_number': payment.mpesa_phone_number,
+            'mpesa_transaction_date': payment.mpesa_transaction_date,
+            'bank_reference': payment.bank_reference,
+            'bank_name': payment.bank_name,
+            'transaction_id': payment.transaction_id,
+            'verified_at': payment.verified_at,
+            'verified_by_id': str(payment.verified_by.id),
+            'verified_by_reg_number': payment.verified_by.reg_number,
+            'verified_by_full_name': payment.verified_by.full_name,
+            'notes': payment.notes,
+            'metadata': payment.metadata,
+            'status': payment.status,
+            'created_at': payment.created_at,
+            'payment_allocations': allocations,
+            'mpesa_transactions': mpesa_transactions
         }
 
     @classmethod
@@ -197,28 +197,28 @@ class PaymentServices(BaseServices):
 
         qs = Payment.objects.filter(**cleaned_filters)
 
-        search_term = filters.get("search_term")
+        search_term = filters.get('search_term')
         if search_term:
             fields = [
-                "payment_reference",
-                "student__id",
-                "student__reg_number",
-                "student__first_name",
-                "student__last_name",
-                "payment_method",
-                "mpesa_receipt_number",
-                "mpesa_phone_number",
-                "bank_reference",
-                "bank_name",
-                "transaction_id",
-                "status",
+                'payment_reference',
+                'student__id',
+                'student__reg_number',
+                'student__first_name',
+                'student__last_name',
+                'payment_method',
+                'mpesa_receipt_number',
+                'mpesa_phone_number',
+                'bank_reference',
+                'bank_name',
+                'transaction_id',
+                'status',
             ]
 
             search_q = Q()
             for field in fields:
-                search_q |= Q(**{f"{field}__icontains": search_term})
+                search_q |= Q(**{f'{field}__icontains': search_term})
 
             qs = qs.filter(search_q)
 
-        payment_ids = qs.values_list("id", flat=True)
+        payment_ids = qs.values_list('id', flat=True)
         return [cls.fetch_payment(payment_id) for payment_id in payment_ids]

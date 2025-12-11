@@ -1,13 +1,14 @@
 from typing import Optional
 
-from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from authentication.models import Identity
+from authentication.models import Identity, IdentityStatus
 from base.services.base_services import BaseServices
-from otps.models import OTP
+from base.services.system_settings_cache import SystemSettingsCache
+from otps.models import OTPPurpose, OTPDeliveryMethod
 from otps.services.otp_services import OTPServices
 from users.models import User
 from users.services.device_services import DeviceServices
@@ -15,6 +16,7 @@ from users.services.device_services import DeviceServices
 
 class AuthServices(BaseServices):
     @classmethod
+    @transaction.atomic
     def login(cls, credential: str, password: str, source_ip: str, device_token: Optional[str]) -> Identity:
         """
         Authenticate a user using either their registration number or username and issue a new identity.
@@ -31,10 +33,14 @@ class AuthServices(BaseServices):
         :rtype: Identity
         :return: An Identity object representing the user's authenticated session.
         """
-        user = User.objects.get(
-            Q(reg_number=credential) | Q(username=credential),
-            is_active=True
-        )
+        try:
+            user = User.objects.get(
+                Q(reg_number=credential) | Q(username=credential),
+                is_active=True
+            )
+        except User.DoesNotExist:
+            user = None
+
         if not user or not user.check_password(password):
             raise ValidationError('Invalid credentials')
 
@@ -47,36 +53,38 @@ class AuthServices(BaseServices):
             user=user,
             device=device,
             expires_at__gte=timezone.now(),
-            status=Identity.Status.ACTIVE
+            status=IdentityStatus.ACTIVE
         ).order_by('-created_at').first()
 
         if identity is None:
-            status = Identity.Status.ACTIVATION_PENDING if settings.TWO_FACTOR_AUTHENTICATION_REQUIRED else \
-                Identity.Status.ACTIVE
+            if SystemSettingsCache.get().two_factor_authentication_required:
+                status = IdentityStatus.ACTIVATION_PENDING
+            else:
+                status = IdentityStatus.ACTIVE
             identity = Identity.objects.create(
                 user=user,
                 device=device,
                 status=status,
             )
-            if status == Identity.Status.ACTIVATION_PENDING:
+            if status == IdentityStatus.ACTIVATION_PENDING:
                 OTPServices.send_otp(
-                    purpose=OTP.PurposeTypes.TWO_FACTOR_AUTHENTICATION,
-                    token=identity.token
+                    purpose=OTPPurpose.TWO_FACTOR_AUTHENTICATION,
+                    token=identity.token,
+                    delivery_method=OTPDeliveryMethod.EMAIL
                 )
 
         Identity.objects.filter(
             user=user,
-            status=Identity.Status.ACTIVE
-        ).exclude(id=identity.id).update(status=Identity.Status.EXPIRED)
+            status=IdentityStatus.ACTIVE
+        ).exclude(id=identity.id).update(status=IdentityStatus.EXPIRED)
 
         identity.source_ip = source_ip
         identity.extend()
 
-        user.update_last_activity()
-
         return identity
 
     @classmethod
+    @transaction.atomic
     def logout(cls, user: User) -> None:
         """
         Log out a user by expiring the identity associated with the provided token.
@@ -86,6 +94,6 @@ class AuthServices(BaseServices):
         :raises Identity.DoesNotExist: If no active identity exists for the given token.
         :rtype: None
         """
-        identity = Identity.objects.get(user=user, status=Identity.Status.ACTIVE)
-        identity.status = Identity.Status.EXPIRED
+        identity = Identity.objects.get(user=user, status=IdentityStatus.ACTIVE)
+        identity.status = IdentityStatus.EXPIRED
         identity.save(update_fields=['status'])

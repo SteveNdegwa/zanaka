@@ -46,8 +46,8 @@ class DepartmentServices(BaseServices):
         :return: Created department instance.
         :rtype: Department
         """
-        required_fields = {"name"}
-        field_types = {"budget_allocated": float}
+        required_fields = {'name'}
+        field_types = {'budget_allocated': float}
         data = cls._sanitize_and_validate_data(
             data,
             required_fields=required_fields,
@@ -55,15 +55,15 @@ class DepartmentServices(BaseServices):
         )
 
         head = None
-        if data.get("head_id"):
-            head = User.objects.get(id=data["head_id"])
+        if data.get('head_id'):
+            head = User.objects.get(id=data['head_id'])
 
-        budget_allocated = Decimal("0.00")
-        if data.get("budget_allocated"):
-            budget_allocated = Decimal(str(data["budget_allocated"]))
+        budget_allocated = Decimal('0.00')
+        if data.get('budget_allocated'):
+            budget_allocated = Decimal(str(data['budget_allocated']))
 
         department = Department.objects.create(
-            name=data["name"],
+            name=data['name'],
             head=head,
             budget_allocated=budget_allocated,
             created_by=user
@@ -88,22 +88,22 @@ class DepartmentServices(BaseServices):
         """
         department = cls.get_department(department_id, select_for_update=True)
 
-        field_types = {"budget_allocated": float}
+        field_types = {'budget_allocated': float}
         data = cls._sanitize_and_validate_data(data, field_types=field_types)
 
-        update_fields = ["updated_by"]
+        update_fields = ['updated_by']
 
-        if "name" in data:
-            department.name = data["name"]
-            update_fields.append("name")
+        if 'name' in data:
+            department.name = data['name']
+            update_fields.append('name')
 
-        if "head_id" in data:
-            department.head = User.objects.get(id=data["head_id"]) if data["head_id"] else None
-            update_fields.append("head")
+        if 'head_id' in data:
+            department.head = User.objects.get(id=data['head_id']) if data['head_id'] else None
+            update_fields.append('head')
 
-        if "budget_allocated" in data:
-            department.budget_allocated = Decimal(str(data["budget_allocated"]))
-            update_fields.append("budget_allocated")
+        if 'budget_allocated' in data:
+            department.budget_allocated = Decimal(str(data['budget_allocated']))
+            update_fields.append('budget_allocated')
 
         department.updated_by = user
         department.save(update_fields=update_fields)
@@ -126,7 +126,7 @@ class DepartmentServices(BaseServices):
         department = cls.get_department(department_id, select_for_update=True)
         department.is_active = False
         department.updated_by = user
-        department.save(update_fields=["is_active", "updated_by"])
+        department.save(update_fields=['is_active', 'updated_by'])
         return department
 
     @classmethod
@@ -145,7 +145,7 @@ class DepartmentServices(BaseServices):
         department = cls.get_department(department_id, select_for_update=True)
         department.is_active = True
         department.updated_by = user
-        department.save(update_fields=["is_active", "updated_by"])
+        department.save(update_fields=['is_active', 'updated_by'])
         return department
 
     @classmethod
@@ -166,18 +166,18 @@ class DepartmentServices(BaseServices):
         budget_utilization = department.get_budget_utilization()
 
         return {
-            "id": str(department.id),
-            "name": department.name,
-            "head_id": str(department.head.id) if department.head else None,
-            "head_full_name": department.head.full_name if department.head else None,
-            "budget_allocated": department.budget_allocated,
-            "current_year_expenses": current_year_expenses,
-            "budget_utilization_percentage": round(budget_utilization, 2),
-            "remaining_budget": department.budget_allocated - current_year_expenses,
-            "all_time_expenses": department.get_total_expenses(),
-            "is_active": department.is_active,
-            "created_at": department.created_at,
-            "updated_at": department.updated_at,
+            'id': str(department.id),
+            'name': department.name,
+            'head_id': str(department.head.id) if department.head else None,
+            'head_full_name': department.head.full_name if department.head else None,
+            'budget_allocated': department.budget_allocated,
+            'current_year_expenses': current_year_expenses,
+            'budget_utilization_percentage': round(budget_utilization, 2),
+            'remaining_budget': department.budget_allocated - current_year_expenses,
+            'all_time_expenses': department.get_total_expenses(),
+            'is_active': department.is_active,
+            'created_at': department.created_at,
+            'updated_at': department.updated_at,
         }
 
     @classmethod
@@ -197,15 +197,15 @@ class DepartmentServices(BaseServices):
 
         qs = Department.objects.filter(**cleaned_filters)
 
-        search_term = filters.get("search_term")
+        search_term = filters.get('search_term')
         if search_term:
-            fields = ["name", "code", "head__first_name", "head__last_name"]
+            fields = ['name', 'code', 'head__first_name', 'head__last_name']
             search_q = Q()
             for field in fields:
-                search_q |= Q(**{f"{field}__icontains": search_term})
+                search_q |= Q(**{f'{field}__icontains': search_term})
             qs = qs.filter(search_q)
 
-        department_ids = qs.values_list("id", flat=True)
+        department_ids = qs.values_list('id', flat=True)
         return [cls.fetch_department(department_id) for department_id in department_ids]
 
     @classmethod
@@ -227,42 +227,42 @@ class DepartmentServices(BaseServices):
             status=ExpenseStatus.APPROVED
         )
 
-        if filters.get("start_date"):
-            qs = qs.filter(expense_date__gte=filters["start_date"])
-        if filters.get("end_date"):
-            qs = qs.filter(expense_date__lte=filters["end_date"])
+        if filters.get('start_date'):
+            qs = qs.filter(expense_date__gte=filters['start_date'])
+        if filters.get('end_date'):
+            qs = qs.filter(expense_date__lte=filters['end_date'])
 
         # Breakdown by category
         category_breakdown = qs.values(
-            "category__name", "category__id"
+            'category__name', 'category__id'
         ).annotate(
-            total_amount=Sum("amount"),
-            expense_count=Count("id")
-        ).order_by("-total_amount")
+            total_amount=Sum('amount'),
+            expense_count=Count('id')
+        ).order_by('-total_amount')
 
         # Breakdown by payment method
-        payment_method_breakdown = qs.values("payment_method").annotate(
-            total_amount=Sum("amount"),
-            expense_count=Count("id")
+        payment_method_breakdown = qs.values('payment_method').annotate(
+            total_amount=Sum('amount'),
+            expense_count=Count('id')
         )
 
         # Monthly trend
         monthly_trend = qs.values(
-            "expense_date__year", "expense_date__month"
+            'expense_date__year', 'expense_date__month'
         ).annotate(
-            total_amount=Sum("amount"),
-            expense_count=Count("id")
-        ).order_by("expense_date__year", "expense_date__month")
+            total_amount=Sum('amount'),
+            expense_count=Count('id')
+        ).order_by('expense_date__year', 'expense_date__month')
 
-        total_expenses = qs.aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+        total_expenses = qs.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
         return {
-            "department_id": str(department.id),
-            "department_name": department.name,
-            "total_expenses": total_expenses,
-            "budget_allocated": department.budget_allocated,
-            "budget_remaining": department.budget_allocated - total_expenses,
-            "category_breakdown": list(category_breakdown),
-            "payment_method_breakdown": list(payment_method_breakdown),
-            "monthly_trend": list(monthly_trend),
+            'department_id': str(department.id),
+            'department_name': department.name,
+            'total_expenses': total_expenses,
+            'budget_allocated': department.budget_allocated,
+            'budget_remaining': department.budget_allocated - total_expenses,
+            'category_breakdown': list(category_breakdown),
+            'payment_method_breakdown': list(payment_method_breakdown),
+            'monthly_trend': list(monthly_trend),
         }

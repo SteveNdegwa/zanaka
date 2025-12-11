@@ -6,7 +6,7 @@ from notifications.models import Notification
 
 class BaseProvider(ABC):
     """
-    Abstract base class for all notification providers (e.g., SMTP, Twilio, Firebase)
+    Abstract base class for all notification providers
     """
 
     def __init__(self, provider_config: dict):
