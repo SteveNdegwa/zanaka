@@ -63,10 +63,8 @@ def delete_school(request: ExtendedRequest, school_id: str) -> JsonResponse:
 
 
 @user_login_required(required_permission='schools.list_branches')
-def list_branches(request: ExtendedRequest, school_id: str) -> JsonResponse:
-    if school_id != request.user.branch.school.id:
-        raise PermissionDenied()
-
+def list_branches(request: ExtendedRequest) -> JsonResponse:
+    school_id = request.user.school.id
     branches = SchoolServices.filter_branches(school_id, **request.data)
 
     return ResponseProvider.success(
@@ -126,11 +124,8 @@ def delete_branch(request: ExtendedRequest, branch_id: str) -> JsonResponse:
 
 
 @user_login_required(required_permission='schools.list_classrooms')
-def list_classrooms(request: ExtendedRequest, branch_id: str) -> JsonResponse:
-    if branch_id != request.user.branch.id:
-        raise PermissionDenied()
-
-    classrooms = SchoolServices.filter_classrooms(branch_id, **request.data)
+def list_classrooms(request: ExtendedRequest) -> JsonResponse:
+    classrooms = SchoolServices.filter_classrooms(request.user.school.id, **request.data)
 
     return ResponseProvider.success(
         message='Classrooms fetched successfully',

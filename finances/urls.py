@@ -11,9 +11,18 @@ urlpatterns = [
     path('invoices/<str:invoice_id>/', views.view_invoice, name='view-invoice'),
     path('invoices/', views.list_invoices, name='list-invoices'),
 
-    # Payment management
+    # Bulk invoice management
+    path('bulk-invoices/create/', views.bulk_create_invoices, name='bulk-create-invoices'),
+    path('bulk-invoices/<str:bulk_invoice_id>/', views.view_bulk_invoice, name='view-bulk-invoice'),
+    path('bulk-invoices/<str:bulk_invoice_id>/cancel/', views.bulk_cancel_invoices, name='bulk-cancel-invoices'),
+    path('bulk-invoices/', views.list_bulk_invoices, name='list-bulk-invoices'),
+
+    #v  Payment management
     path('students/<str:student_id>/payments/create/', views.create_payment, name='create-payment'),
+    path('payments/<str:payment_id>/approve/', views.approve_payment, name='approve-payment'),
     path('payments/<str:payment_id>/reverse/', views.reverse_payment, name='reverse-payment'),
+    path('payments/<str:payment_id>/refunds/create/', views.create_refund, name='create-refund'),
+    path('refunds/<str:refund_id>/cancel/', views.cancel_refund, name='create-refund'),
     path('payments/<str:payment_id>/', views.view_payment, name='view-payment'),
     path('payments/', views.list_payments, name='list-payments'),
 
@@ -85,5 +94,28 @@ urlpatterns = [
         'expense-budgets/utilization-report/',
         views.get_budget_utilization_report,
         name='budget-utilization-report'
+    ),
+
+    # Fee items management
+    path('fee-items/create/', views.create_fee_item, name='create_fee_item'),
+    path('fee-items/<str:fee_item_id>/update/', views.update_fee_item, name='update_fee_item'),
+    path('fee-items/<str:fee_item_id>/deactivate/', views.deactivate_fee_item, name='deactivate_fee_item'),
+    path('fee-items/<str:fee_item_id>/activate/', views.activate_fee_item, name='activate_fee_item'),
+    path('fee-items/<str:fee_item_id>/', views.view_fee_item, name='view_fee_item'),
+    path('fee-items/', views.list_fee_items, name='list_fee_items'),
+    path(
+        'fee-items/<str:fee_item_id>/grade-level-fees/create/',
+        views.create_grade_level_fee,
+        name='create_grade_level_fee'
+    ),
+    path(
+        'grade-level-fees/<str:grade_level_fee_id>/update/',
+        views.update_grade_level_fee,
+        name='update_grade_level_fee'
+    ),
+    path(
+        'grade-level-fees/<str:grade_level_fee_id>/delete/',
+        views.delete_grade_level_fee,
+        name='delete_grade_level_fee'
     ),
 ]

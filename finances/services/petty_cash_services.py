@@ -184,10 +184,10 @@ class PettyCashServices(BaseServices):
         """
         filters = cls._sanitize_and_validate_data(filters)
 
-        fund_field_names = set(PettyCash._meta.fields_map.keys())
+        fund_field_names = {f.name for f in PettyCash._meta.get_fields()}
         cleaned_filters = {k: v for k, v in filters.items() if k in fund_field_names}
 
-        qs = PettyCash.objects.filter(**cleaned_filters)
+        qs = PettyCash.objects.filter(**cleaned_filters).order_by('-created_at')
 
         search_term = filters.get('search_term')
         if search_term:

@@ -193,10 +193,10 @@ class ExpenseBudgetServices(BaseServices):
         """
         filters = cls._sanitize_and_validate_data(filters)
 
-        budget_field_names = set(ExpenseBudget._meta.fields_map.keys())
+        budget_field_names = {f.name for f in ExpenseBudget._meta.get_fields()}
         cleaned_filters = {k: v for k, v in filters.items() if k in budget_field_names}
 
-        qs = ExpenseBudget.objects.filter(**cleaned_filters)
+        qs = ExpenseBudget.objects.filter(**cleaned_filters).order_by('-created_at')
 
         budget_ids = qs.values_list('id', flat=True)
         return [cls.fetch_expense_budget(budget_id) for budget_id in budget_ids]

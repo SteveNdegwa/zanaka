@@ -1,13 +1,31 @@
+from uuid import UUID
+from datetime import datetime, date
+
+from django.db import models
 from django.contrib.contenttypes.models import ContentType
-
-from audit.services.request_context import RequestContext
-
 
 class AuditableMixin:
     """
     A mixin to automatically create AuditLog entries
     for create, update, and delete operations if enabled in AuditConfiguration.
     """
+
+    @staticmethod
+    def _to_json_safe(value):
+        if isinstance(value, models.Model):
+            return {
+                "id": str(value.pk),
+                "repr": str(value),
+            }
+
+        if isinstance(value, UUID):
+            return str(value)
+
+        if isinstance(value, (datetime, date)):
+            return value.isoformat()
+
+        return value
+
 
     def _is_tracking_enabled(self, action: str) -> bool:
         from audit.models import AuditConfiguration, AuditEventType
@@ -31,7 +49,7 @@ class AuditableMixin:
         return False
 
     def save(self, *args, **kwargs):
-        from audit.models import AuditEventType, AuditSeverity, AuditLog
+        from audit.models import AuditEventType, AuditSeverity
 
         is_new = self.pk is None
 
@@ -59,8 +77,8 @@ class AuditableMixin:
                 new_value = getattr(self, field.name, None)
                 if old_value != new_value:
                     changes[field.name] = {
-                        'old_value': old_value,
-                        'new_value': new_value,
+                        'old_value': self._to_json_safe(old_value),
+                        'new_value': self._to_json_safe(new_value),
                     }
 
         self._create_audit_log(
@@ -72,14 +90,14 @@ class AuditableMixin:
         return result
 
     def delete(self, *args, **kwargs):
-        from audit.models import AuditEventType, AuditSeverity, AuditLog
+        from audit.models import AuditEventType, AuditSeverity
 
         if not self._is_tracking_enabled(AuditEventType.DELETE):
             return super().delete(*args, **kwargs)
 
         # Snapshot before delete
         deleted_data = {
-            field.name: getattr(self, field.name, None)
+            field.name: self._to_json_safe(getattr(self, field.name, None))
             for field in self._meta.fields
             if field.name not in self._excluded_audit_fields()
         }
@@ -108,7 +126,6 @@ class AuditableMixin:
 
     def _create_audit_log(self, event_type, severity, changes=None, metadata=None):
         from audit.models import AuditLog
-        from django.contrib.contenttypes.models import ContentType
         from audit.services.request_context import RequestContext
 
         context = RequestContext.get()

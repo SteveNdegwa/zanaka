@@ -36,6 +36,7 @@ class RequestLog(BaseModel):
     activity_name = models.CharField(max_length=255, null=True, blank=True, verbose_name=_('Activity Name'))
     exception_type = models.CharField(max_length=255, null=True, blank=True, verbose_name=_('Exception Type'))
     exception_message = models.TextField(null=True, blank=True, verbose_name=_('Exception Message'))
+    exception_traceback = models.TextField(null=True, blank=True, verbose_name=_("Exception Traceback"))
     started_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Started At'))
     ended_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Ended At'))
     time_taken = models.FloatField(null=True, blank=True, verbose_name=_('Time Taken (s)'))

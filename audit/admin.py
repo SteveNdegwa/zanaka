@@ -135,7 +135,7 @@ class RequestLogAdmin(admin.ModelAdmin):
             'fields': ('response_status', 'response_data')
         }),
         (_('Exceptions'), {
-            'fields': ('exception_type', 'exception_message')
+            'fields': ('exception_type', 'exception_message', 'exception_traceback')
         }),
         AUDIT_FIELDSET,
     )

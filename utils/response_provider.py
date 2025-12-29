@@ -6,12 +6,13 @@ from django.http import JsonResponse
 class ResponseProvider:
     @staticmethod
     def _response(success: bool, code: str, message: str, status: int, data=None, error=None) -> JsonResponse:
+        if data is None: data = {}
         return JsonResponse(
             data={
                 'success': success,
                 'code': code,
                 'message': message,
-                'data': data or {},
+                'data': data,
                 'error': error or '',
             },
             status=status,

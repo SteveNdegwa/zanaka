@@ -1,3 +1,5 @@
+import uuid
+
 from django.apps import apps
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 
@@ -107,10 +109,80 @@ class BaseServices:
                 model = apps.get_model(model_path)
 
                 try:
-                    resolved[attr] = model.objects.get(id=value, is_active=True)
-                except ObjectDoesNotExist:
-                    raise ValidationError(f'{attr} with id={value} does not exist or is inactive.')
+                    val_uuid = uuid.UUID(str(value))
+                    try:
+                        if "is_active" in [f.name for f in model._meta.get_fields()]:
+                            resolved[attr] = model.objects.get(id=val_uuid, is_active=True)
+                        else:
+                            resolved[attr] = model.objects.get(id=val_uuid)
+                    except ObjectDoesNotExist:
+                        raise ValidationError(f'{attr} with id={value} does not exist or is inactive.')
+                except ValueError:
+                    try:
+                        resolved[attr] = model.objects.get(name=value, is_active=True)
+                    except ObjectDoesNotExist:
+                        raise ValidationError(f'{attr} with name="{value}" does not exist or is inactive.')
             else:
                 resolved[field] = value
 
         return resolved
+
+    @classmethod
+    def _validate_model_uniqueness(
+            cls,
+            model,
+            data: dict,
+            *,
+            unique_fields: set[str] = None,
+            ignore_fields: set[str] = None,
+            exclude_instance=None,
+            self_scope: dict | None = None,
+    ) -> None:
+        """
+        Validate that the specified fields in a model are unique, with support for
+        additional filtering, exclusion, and related object scoping.
+
+        :param model: The Django model class to validate uniqueness on.
+        :type model: models.Model
+        :param data: Dictionary of field names and their values to check for uniqueness.
+        :type data: dict
+        :param unique_fields: Set of field names to enforce uniqueness. Defaults to all  unique fields on the model.
+        :type unique_fields: set[str], optional
+        :param ignore_fields: Set of field names to ignore during uniqueness validation.
+        :type ignore_fields: set[str], optional
+        :param exclude_instance: Instance of the model to exclude from the check (useful for updates).
+        :type exclude_instance: models.Model, optional
+        :param self_scope: Dictionary of additional filters to apply directly to the model query.
+        :type self_scope: dict, optional
+        :raises ValidationError: If a uniqueness constraint is violated.
+        :rtype: None
+        """
+        model_fields = {f.name for f in model._meta.fields}
+        if unique_fields is None:
+            unique_fields = {f.name for f in model._meta.fields if f.unique}
+
+        ignore_fields = ignore_fields or set()
+
+        for field in unique_fields:
+            if field in ignore_fields or field not in data or field not in model_fields:
+                continue
+
+            value = data[field]
+            qs = model.objects.filter(**{field: value})
+
+            if self_scope:
+                qs = qs.filter(**self_scope)
+
+            if exclude_instance:
+                qs = qs.exclude(pk=exclude_instance.pk)
+
+            if qs.exists():
+                # noinspection PyBroadException
+                try:
+                    verbose_name = model._meta.get_field(field).verbose_name
+                except Exception:
+                    verbose_name = field.replace('_', ' ').capitalize()
+
+                raise ValidationError(
+                    f"A record with the same {verbose_name} already exists."
+                )

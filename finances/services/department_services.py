@@ -192,10 +192,10 @@ class DepartmentServices(BaseServices):
         """
         filters = cls._sanitize_and_validate_data(filters)
 
-        department_field_names = set(Department._meta.fields_map.keys())
+        department_field_names = {f.name for f in Department._meta.get_fields()}
         cleaned_filters = {k: v for k, v in filters.items() if k in department_field_names}
 
-        qs = Department.objects.filter(**cleaned_filters)
+        qs = Department.objects.filter(**cleaned_filters).order_by('name')
 
         search_term = filters.get('search_term')
         if search_term:

@@ -239,10 +239,10 @@ class VendorServices(BaseServices):
         """
         filters = cls._sanitize_and_validate_data(filters)
 
-        vendor_field_names = set(Vendor._meta.fields_map.keys())
+        vendor_field_names = {f.name for f in Vendor._meta.get_fields()}
         cleaned_filters = {k: v for k, v in filters.items() if k in vendor_field_names}
 
-        qs = Vendor.objects.filter(**cleaned_filters)
+        qs = Vendor.objects.filter(**cleaned_filters).order_by('-created_at')
 
         search_term = filters.get('search_term')
         if search_term:

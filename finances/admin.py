@@ -9,6 +9,7 @@ from .models import (
     InvoiceItem,
     Payment,
     PaymentAllocation,
+    Refund,
     MpesaTransaction,
     ExpenseCategory,
     Vendor,
@@ -18,7 +19,7 @@ from .models import (
     PettyCash,
     PettyCashTransaction,
     ExpenseBudget,
-    BalanceSheet
+    BalanceSheet, ExpenseStatus, PaymentStatus, InvoiceStatus
 )
 
 
@@ -36,6 +37,17 @@ class PaymentAllocationInline(admin.TabularInline):
     raw_id_fields = ('invoice',)
 
 
+class RefundInline(admin.TabularInline):
+    model = Refund
+    extra = 0
+    fields = (
+        'amount', 'refund_method', 'status', 'processed_by', 'processed_at', 'mpesa_receipt_number',
+        'bank_reference', 'cancelled_by', 'cancelled_at', 'cancellation_reason'
+    )
+    readonly_fields = ('processed_at',)
+    can_delete = True
+
+
 class ExpenseAttachmentInline(admin.TabularInline):
     model = ExpenseAttachment
     extra = 1
@@ -48,6 +60,14 @@ class PettyCashTransactionInline(admin.TabularInline):
     extra = 0
     fields = ('transaction_type', 'amount', 'description', 'processed_by', 'balance_after')
     readonly_fields = ('balance_after',)
+
+
+class GradeLevelFeeInline(admin.TabularInline):
+    model = GradeLevelFee
+    extra = 1
+    fields = ('grade_level', 'term', 'academic_year', 'amount', 'is_mandatory')
+    verbose_name = _('Grade Level Fee Override')
+    verbose_name_plural = _('Grade Level Fee Overrides')
 
 
 AUDIT_FIELDSET = (
@@ -63,14 +83,21 @@ AUDIT_READONLY_FIELDS = ('id', 'created_at', 'updated_at', 'synced')
 
 @admin.register(FeeItem)
 class FeeItemAdmin(admin.ModelAdmin):
-    list_display = ('name', 'category', 'default_amount', 'is_active')
-    list_filter = ('category', 'is_active')
-    search_fields = ('name',)
+    list_display = ('name', 'school', 'category', 'default_amount', 'is_active')
+    list_filter = ('school', 'category', 'is_active')
+    search_fields = ('name', 'school__name')
     readonly_fields = AUDIT_READONLY_FIELDS
+    filter_horizontal = ('branches',)
+
+    inlines = (GradeLevelFeeInline,)
 
     fieldsets = (
+        (_('School Assignment'), {
+            'fields': ('school', 'branches'),
+            'description': _('Required: Select the school. Optional: Limit to specific branches (leave empty for all).'),
+        }),
         (_('Fee Item Details'), {
-            'fields': ('name', 'category', 'default_amount', 'is_active')
+            'fields': ('name', 'category', 'description', 'default_amount', 'is_active')
         }),
         AUDIT_FIELDSET,
     )
@@ -133,14 +160,15 @@ class InvoiceAdmin(admin.ModelAdmin):
 
     def colored_status(self, obj):
         colors = {
-            'DRAFT': 'gray',
-            'PENDING': 'orange',
-            'PARTIALLY_PAID': 'blue',
-            'PAID': 'green',
-            'OVERDUE': 'red',
-            'CANCELLED': 'darkred',
+            InvoiceStatus.DRAFT: '#666666',
+            InvoiceStatus.PENDING: '#FF9800',
+            InvoiceStatus.PARTIALLY_PAID: '#2196F3',
+            InvoiceStatus.PAID: '#4CAF50',
+            InvoiceStatus.OVERDUE: '#F44336',
+            InvoiceStatus.CANCELLED: '#9C27B0',
         }
-        return format_html('<b style="color:{};">{}</b>', colors.get(obj.computed_status, 'black'), obj.computed_status)
+        color = colors.get(obj.computed_status, '#000000')
+        return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, obj.computed_status)
     colored_status.short_description = _('Status')
 
 
@@ -151,19 +179,6 @@ class InvoiceItemAdmin(admin.ModelAdmin):
     search_fields = ('invoice__invoice_reference', 'fee_item__name')
     readonly_fields = AUDIT_READONLY_FIELDS + ('amount',)
 
-    fieldsets = (
-        (_('Item Details'), {
-            'fields': ('invoice', 'fee_item', 'description')
-        }),
-        (_('Pricing'), {
-            'fields': ('quantity', 'unit_price', 'amount')
-        }),
-        (_('Status'), {
-            'fields': ('is_active',)
-        }),
-        AUDIT_FIELDSET,
-    )
-
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
@@ -171,15 +186,26 @@ class PaymentAdmin(admin.ModelAdmin):
         'payment_reference',
         'student',
         'amount',
-        'utilized_amount',
+        'allocated_amount',
+        'completed_refunded_amount',
+        'effective_utilized_amount',
         'unassigned_amount',
         'payment_method',
         'colored_status',
+        'created_at',
     )
     list_filter = ('payment_method', 'status', 'created_at')
-    search_fields = ('payment_reference', 'mpesa_receipt_number', 'transaction_id')
-    readonly_fields = AUDIT_READONLY_FIELDS + ('payment_reference', 'utilized_amount', 'unassigned_amount')
-    inlines = (PaymentAllocationInline,)
+    search_fields = ('payment_reference', 'mpesa_receipt_number', 'transaction_id', 'student__username')
+    readonly_fields = AUDIT_READONLY_FIELDS + (
+        'payment_reference',
+        'allocated_amount',
+        'effective_utilized_amount',
+        'completed_refunded_amount',
+        'pending_refunded_amount',
+        'unassigned_amount',
+        'get_available_refund_amount',
+    )
+    inlines = (PaymentAllocationInline, RefundInline)
 
     fieldsets = (
         (_('Payment Overview'), {
@@ -193,8 +219,21 @@ class PaymentAdmin(admin.ModelAdmin):
             'fields': ('bank_reference', 'bank_name', 'transaction_id'),
             'classes': ('collapse',)
         }),
-        (_('Allocation Summary'), {
-            'fields': ('utilized_amount', 'unassigned_amount')
+        (_('Allocation & Refund Summary'), {
+            'fields': (
+                'priority_invoice',
+                'allocated_amount',
+                'effective_utilized_amount',
+                'completed_refunded_amount',
+                'pending_refunded_amount',
+                'unassigned_amount',
+                'get_available_refund_amount',
+            ),
+            'description': _('All amounts auto-calculated based on allocations and completed refunds'),
+        }),
+        (_('Reversal Info'), {
+            'fields': ('reversal_reason', 'reversed_by', 'reversed_at'),
+            'classes': ('collapse',)
         }),
         (_('Verification & Notes'), {
             'fields': ('verified_at', 'verified_by', 'notes', 'metadata'),
@@ -204,9 +243,75 @@ class PaymentAdmin(admin.ModelAdmin):
     )
 
     def colored_status(self, obj):
-        colors = {'PENDING': 'orange', 'COMPLETED': 'green', 'FAILED': 'red', 'REVERSED': 'darkred'}
-        return format_html('<b style="color:{};">{}</b>', colors.get(obj.status, 'black'), obj.status)
+        colors = {
+            PaymentStatus.PENDING: '#FF9800',
+            PaymentStatus.COMPLETED: '#4CAF50',
+            PaymentStatus.FAILED: '#F44336',
+            PaymentStatus.REVERSED: '#9C27B0',
+            PaymentStatus.REFUNDED: '#673AB7',
+            PaymentStatus.PARTIALLY_REFUNDED: '#2196F3',
+        }
+        color = colors.get(obj.status, '#000000')
+        return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, obj.get_status_display())
     colored_status.short_description = _('Status')
+
+
+@admin.register(Refund)
+class RefundAdmin(admin.ModelAdmin):
+    list_display = (
+        'original_payment',
+        'student',
+        'amount',
+        'refund_method',
+        'colored_status',
+        'processed_by',
+        'processed_at',
+    )
+    list_filter = ('refund_method', 'status', 'processed_at')
+    search_fields = ('original_payment__payment_reference', 'mpesa_receipt_number', 'bank_reference')
+    readonly_fields = AUDIT_READONLY_FIELDS + ('processed_at', 'student')
+    date_hierarchy = 'processed_at'
+
+    fieldsets = (
+        (_('Refund Details'), {
+            'fields': ('original_payment', 'student', 'amount', 'refund_method', 'status')
+        }),
+        (_('M-Pesa Refund'), {
+            'fields': ('mpesa_receipt_number', 'mpesa_phone_number', 'mpesa_transaction_date'),
+            'classes': ('collapse',)
+        }),
+        (_('Bank Refund'), {
+            'fields': ('bank_reference', 'bank_name'),
+            'classes': ('collapse',)
+        }),
+        (_('General'), {
+            'fields': ('transaction_id', 'reference', 'notes')
+        }),
+        (_('Processed'), {
+            'fields': ('processed_by', 'processed_at'),
+        }),
+        (_('Cancellation'), {
+            'fields': ('cancelled_by', 'cancelled_at', 'cancellation_reason'),
+            'classes': ('collapse',)
+        }),
+        AUDIT_FIELDSET,
+    )
+
+    def colored_status(self, obj):
+        colors = {
+            'PENDING': '#FF9800',
+            'COMPLETED': '#4CAF50',
+            'FAILED': '#F44336',
+            'CANCELLED': '#9C27B0',
+        }
+        color = colors.get(obj.status, '#000000')
+        return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, obj.get_status_display())
+    colored_status.short_description = _('Status')
+
+    def student(self, obj):
+        return obj.student
+    student.short_description = _('Student')
+    student.admin_order_field = 'original_payment__student'
 
 
 @admin.register(PaymentAllocation)
@@ -216,16 +321,6 @@ class PaymentAllocationAdmin(admin.ModelAdmin):
     search_fields = ('payment__payment_reference', 'invoice__invoice_reference')
     readonly_fields = AUDIT_READONLY_FIELDS
 
-    fieldsets = (
-        (_('Allocation'), {
-            'fields': ('payment', 'invoice', 'allocated_amount', 'allocation_order')
-        }),
-        (_('Status'), {
-            'fields': ('is_active',)
-        }),
-        AUDIT_FIELDSET,
-    )
-
 
 @admin.register(MpesaTransaction)
 class MpesaTransactionAdmin(admin.ModelAdmin):
@@ -233,23 +328,6 @@ class MpesaTransactionAdmin(admin.ModelAdmin):
     list_filter = ('status', 'is_reconciled')
     search_fields = ('trans_id', 'bill_ref_number', 'msisdn')
     readonly_fields = AUDIT_READONLY_FIELDS + ('raw_data',)
-
-    fieldsets = (
-        (_('Transaction Core'), {
-            'fields': ('trans_id', 'trans_time', 'trans_amount', 'business_short_code', 'bill_ref_number')
-        }),
-        (_('Customer Info'), {
-            'fields': ('msisdn', 'first_name', 'middle_name', 'last_name')
-        }),
-        (_('Reconciliation'), {
-            'fields': ('payment', 'status', 'is_reconciled', 'reconciliation_notes')
-        }),
-        (_('Raw Payload'), {
-            'fields': ('raw_data',),
-            'classes': ('collapse',)
-        }),
-        AUDIT_FIELDSET,
-    )
 
 
 @admin.register(ExpenseCategory)
@@ -259,19 +337,6 @@ class ExpenseCategoryAdmin(admin.ModelAdmin):
     search_fields = ('name',)
     readonly_fields = AUDIT_READONLY_FIELDS
 
-    fieldsets = (
-        (_('Category'), {
-            'fields': ('name', 'parent')
-        }),
-        (_('Budget Settings'), {
-            'fields': ('has_budget', 'monthly_budget', 'annual_budget')
-        }),
-        (_('Workflow'), {
-            'fields': ('requires_approval', 'is_active')
-        }),
-        AUDIT_FIELDSET,
-    )
-
 
 @admin.register(Vendor)
 class VendorAdmin(admin.ModelAdmin):
@@ -279,24 +344,6 @@ class VendorAdmin(admin.ModelAdmin):
     list_filter = ('payment_terms', 'is_active')
     search_fields = ('name', 'phone', 'email', 'kra_pin')
     readonly_fields = AUDIT_READONLY_FIELDS
-
-    fieldsets = (
-        (_('Vendor Identity'), {
-            'fields': ('name', 'contact_person', 'email', 'phone', 'address', 'kra_pin')
-        }),
-        (_('Payment Preferences'), {
-            'fields': (
-                'payment_terms',
-                ('mpesa_pochi_number', 'mpesa_paybill_number', 'mpesa_paybill_account', 'mpesa_till_number'),
-                ('bank_name', 'bank_account', 'bank_branch'),
-            )
-        }),
-        (_('Status & Notes'), {
-            'fields': ('is_active', 'notes'),
-            'classes': ('collapse',)
-        }),
-        AUDIT_FIELDSET,
-    )
 
 
 @admin.register(Department)
@@ -306,20 +353,10 @@ class DepartmentAdmin(admin.ModelAdmin):
     search_fields = ('name',)
     readonly_fields = AUDIT_READONLY_FIELDS
 
-    fieldsets = (
-        (_('Department Info'), {
-            'fields': ('name', 'head', 'budget_allocated')
-        }),
-        (_('Status'), {
-            'fields': ('is_active',)
-        }),
-        AUDIT_FIELDSET,
-    )
-
     def get_budget_utilization(self, obj):
         util = obj.get_budget_utilization()
-        color = 'green' if util < 80 else 'orange' if util < 100 else 'red'
-        return format_html('<b style="color:{};">{}%</b>', color, util)
+        color = '#4CAF50' if util < 80 else '#FF9800' if util < 100 else '#F44336'
+        return format_html('<span style="color: {}; font-weight: bold;">{}%</span>', color, util)
     get_budget_utilization.short_description = _('Budget Utilized')
 
 
@@ -341,53 +378,17 @@ class ExpenseAdmin(admin.ModelAdmin):
     inlines = (ExpenseAttachmentInline,)
     date_hierarchy = 'expense_date'
 
-    fieldsets = (
-        (_('Expense Core'), {
-            'fields': ('expense_reference', 'name', 'category', 'department', 'vendor', 'amount', 'expense_date')
-        }),
-        (_('Payment & Status'), {
-            'fields': ('payment_method', 'status')
-        }),
-        (_('Reference Numbers'), {
-            'fields': ('invoice_number', 'receipt_number', 'cheque_number', 'transaction_reference'),
-            'classes': ('collapse',)
-        }),
-        (_('Tax'), {
-            'fields': ('is_taxable', 'tax_rate', 'tax_amount')
-        }),
-        (_('Total'), {
-            'fields': ('total_amount',),
-            'description': _('Amount + Tax (auto-calculated)')
-        }),
-        (_('Approval Workflow'), {
-            'fields': (
-                ('requested_by', 'approved_by', 'rejected_by', 'paid_by'),
-                ('approved_at', 'rejected_at', 'paid_at'),
-                'rejection_reason',
-            ),
-            'classes': ('collapse',)
-        }),
-        (_('Recurring'), {
-            'fields': ('is_recurring', 'recurrence_frequency'),
-            'classes': ('collapse',)
-        }),
-        (_('Notes'), {
-            'fields': ('notes',),
-            'classes': ('collapse',)
-        }),
-        AUDIT_FIELDSET,
-    )
-
     def colored_status(self, obj):
         colors = {
-            'DRAFT': 'gray',
-            'PENDING_APPROVAL': 'orange',
-            'APPROVED': 'blue',
-            'REJECTED': 'red',
-            'PAID': 'green',
-            'CANCELLED': 'darkred',
+            ExpenseStatus.DRAFT: '#666666',
+            ExpenseStatus.PENDING_APPROVAL: '#FF9800',
+            ExpenseStatus.APPROVED: '#2196F3',
+            ExpenseStatus.REJECTED: '#F44336',
+            ExpenseStatus.PAID: '#4CAF50',
+            ExpenseStatus.CANCELLED: '#9C27B0',
         }
-        return format_html('<b style="color:{};">{}</b>', colors.get(obj.status, 'black'), obj.status)
+        color = colors.get(obj.status, '#000000')
+        return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, obj.get_status_display())
     colored_status.short_description = _('Status')
 
 
@@ -398,17 +399,6 @@ class ExpenseAttachmentAdmin(admin.ModelAdmin):
     search_fields = ('file_name', 'expense__expense_reference')
     readonly_fields = AUDIT_READONLY_FIELDS
 
-    fieldsets = (
-        (_('File'), {
-            'fields': ('expense', 'file')
-        }),
-        (_('Metadata'), {
-            'fields': ('file_name', 'file_type', 'file_size', 'uploaded_by'),
-            'classes': ('collapse',)
-        }),
-        AUDIT_FIELDSET,
-    )
-
 
 @admin.register(PettyCash)
 class PettyCashAdmin(admin.ModelAdmin):
@@ -417,13 +407,6 @@ class PettyCashAdmin(admin.ModelAdmin):
     inlines = (PettyCashTransactionInline,)
     readonly_fields = AUDIT_READONLY_FIELDS
 
-    fieldsets = (
-        (_('Fund Details'), {
-            'fields': ('fund_name', 'custodian', 'initial_amount', 'current_balance', 'status')
-        }),
-        AUDIT_FIELDSET,
-    )
-
 
 @admin.register(PettyCashTransaction)
 class PettyCashTransactionAdmin(admin.ModelAdmin):
@@ -431,20 +414,6 @@ class PettyCashTransactionAdmin(admin.ModelAdmin):
     list_filter = ('transaction_type', 'created_at')
     search_fields = ('description',)
     readonly_fields = AUDIT_READONLY_FIELDS
-
-    fieldsets = (
-        (_('Transaction'), {
-            'fields': ('petty_cash_fund', 'transaction_type', 'amount', 'description')
-        }),
-        (_('Balances'), {
-            'fields': ('balance_before', 'balance_after')
-        }),
-        (_('Processed By'), {
-            'fields': ('processed_by', 'expense', 'notes'),
-            'classes': ('collapse',)
-        }),
-        AUDIT_FIELDSET,
-    )
 
 
 @admin.register(ExpenseBudget)
@@ -456,26 +425,10 @@ class ExpenseBudgetAdmin(admin.ModelAdmin):
         'budget_amount',
         'get_spent_amount',
         'get_utilization_percentage',
+        'get_remaining_budget',
     )
     list_filter = ('fiscal_year', 'period', 'category')
     readonly_fields = AUDIT_READONLY_FIELDS + ('get_spent_amount', 'get_utilization_percentage', 'get_remaining_budget')
-
-    fieldsets = (
-        (_('Budget Definition'), {
-            'fields': ('fiscal_year', 'category', 'department', 'budget_amount', 'period')
-        }),
-        (_('Date Range'), {
-            'fields': ('start_date', 'end_date')
-        }),
-        (_('Utilization Summary'), {
-            'fields': ('get_spent_amount', 'get_utilization_percentage', 'get_remaining_budget')
-        }),
-        (_('Notes'), {
-            'fields': ('notes', 'created_by'),
-            'classes': ('collapse',)
-        }),
-        AUDIT_FIELDSET,
-    )
 
     def get_spent_amount(self, obj):
         return f"KES {obj.get_spent_amount():,.2f}"
@@ -483,8 +436,8 @@ class ExpenseBudgetAdmin(admin.ModelAdmin):
 
     def get_utilization_percentage(self, obj):
         p = obj.get_utilization_percentage()
-        color = 'green' if p < 80 else 'orange' if p < 100 else 'red'
-        return format_html('<b style="color:{};">{:.2f}%</b>', color, p)
+        color = '#4CAF50' if p < 80 else '#FF9800' if p < 100 else '#F44336'
+        return format_html('<span style="color: {}; font-weight: bold;">{:.2f}%</span>', color, p)
     get_utilization_percentage.short_description = _('Utilization %')
 
     def get_remaining_budget(self, obj):
@@ -499,35 +452,11 @@ class BalanceSheetAdmin(admin.ModelAdmin):
     date_hierarchy = 'date'
     readonly_fields = tuple(f.name for f in BalanceSheet._meta.fields)
 
-    fieldsets = (
-        (_('Financial Summary'), {
-            'fields': (
-                'total_invoiced',
-                'total_collected',
-                'total_outstanding',
-                'total_overdue',
-                'mpesa_collections',
-                'bank_collections',
-                'cash_collections',
-            )
-        }),
-        (_('Counts'), {
-            'fields': (
-                'number_of_invoices',
-                'number_of_payments',
-                'number_of_paid_invoices',
-                'number_of_pending_invoices',
-            )
-        }),
-        (_('Generated'), {
-            'fields': ('date', 'generated_by', 'metadata'),
-            'classes': ('collapse',)
-        }),
-        AUDIT_FIELDSET,
-    )
-
     def has_add_permission(self, request):
         return False
 
     def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False

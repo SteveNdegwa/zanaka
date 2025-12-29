@@ -28,6 +28,11 @@ class Gender(models.TextChoices):
     OTHER = 'OTHER', _('Other')
 
 
+class StudentType(models.TextChoices):
+    DAY_SCHOLAR = 'DAY_SCHOLAR', _('Day Scholar')
+    BOARDER = 'BOARDER', _('Boarder')
+
+
 class GuardianRelationship(models.TextChoices):
     FATHER = 'FATHER', _('Father')
     MOTHER = 'MOTHER', _('Mother')
@@ -39,6 +44,47 @@ class GuardianRelationship(models.TextChoices):
     GRANDFATHER = 'GRANDFATHER', _('Grandfather')
     GRANDMOTHER = 'GRANDMOTHER', _('Grandmother')
     OTHER = 'OTHER', _('Other')
+
+
+class StudentClassroomMovementType(models.TextChoices):
+    ADMISSION = 'ADMISSION', _('Admission')
+    PROMOTION = 'PROMOTION', _('Promotion')
+    STREAM_CHANGE = 'STREAM_CHANGE', _('Stream change')
+    REPEAT = 'REPEAT', _('Repeat')
+    TRANSFER_OUT = 'TRANSFER_OUT', _('Transfer out')
+    GRADUATION = 'GRADUATION', _('Graduation')
+    WITHDRAWAL = 'WITHDRAWAL', _('Withdrawal')
+
+
+class StudentStatus(models.TextChoices):
+    ACTIVE = 'ACTIVE', _('Active')
+    SUSPENDED = 'SUSPENDED', _('Suspended')
+    GRADUATED = 'GRADUATED', _('Graduated')
+    TRANSFERRED = 'TRANSFERRED', _('Transferred')
+
+
+class TeacherStatus(models.TextChoices):
+    ACTIVE = 'ACTIVE', _('Active')
+    SUSPENDED = 'SUSPENDED', _('Suspended')
+    RETIRED = 'RETIRED', _('Retired')
+    TERMINATED = 'TERMINATED', _('Terminated')
+    ON_LEAVE = 'ON_LEAVE', _('On Leave')
+
+
+class GuardianStatus(models.TextChoices):
+    ACTIVE = 'ACTIVE', _('Active')
+
+
+class ClerkStatus(models.TextChoices):
+    ACTIVE = 'ACTIVE', _('Active')
+    TERMINATED = 'TERMINATED', _('Terminated')
+    ON_LEAVE = 'ON_LEAVE', _('On Leave')
+
+
+class AdminStatus(models.TextChoices):
+    ACTIVE = 'ACTIVE', _('Active')
+    TERMINATED = 'TERMINATED', _('Terminated')
+    ON_LEAVE = 'ON_LEAVE', _('On Leave')
 
 
 class Role(GenericBaseModel):
@@ -145,6 +191,9 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
     other_name = models.CharField(max_length=150, blank=True, verbose_name=_('Other name'))
     date_of_birth = models.DateField(null=True, blank=True, verbose_name=_('Date of birth'))
     gender = models.CharField(max_length=10, choices=Gender.choices, default=Gender.OTHER)
+    town_of_residence = models.CharField(max_length=100, blank=True, null=True, verbose_name=_('Town of residence'))
+    county_of_residence = models.CharField(max_length=100, blank=True, null=True, verbose_name=_('County of residence'))
+    address = models.TextField(blank=True, null=True, verbose_name=_('Address'))
     reg_number = models.CharField(
         max_length=50,
         unique=True,
@@ -152,14 +201,25 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
         verbose_name=_('Registration number'),
         help_text=_('Unique school registration number assigned to this user.'),
     )
+    photo = models.TextField(blank=True, null=True)
     role = models.ForeignKey(Role, on_delete=models.CASCADE, verbose_name=_('Role'))
-    branch = models.ForeignKey(
-        'schools.Branch',
+    school = models.ForeignKey(
+        'schools.School',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name='users',
-        verbose_name=_('Branch')
+        verbose_name=_('School')
+    )
+    branches = models.ManyToManyField(
+        'schools.Branch',
+        blank=True,
+        related_name='assigned_users',
+        verbose_name=_('Assigned Branches'),
+        help_text=_(
+            "Branches this user is assigned to. "
+            "Leave blank for access to ALL branches in the school."
+        )
     )
     is_staff = models.BooleanField(
         default=False,
@@ -173,7 +233,8 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
     )
     force_pass_reset = models.BooleanField(
         default=False,
-        help_text="User must update password on next login."
+        verbose_name=_('Force password reset'),
+        help_text=_("User must update password on next login.")
     )
     last_activity = models.DateTimeField(
         null=True,
@@ -240,8 +301,8 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
             'guardian': 'GDN',
         }
 
-        if self.branch:
-            school_code = self.branch.school.code
+        if self.school:
+            school_code = self.school.code
         else:
             school_code = 'SCH'
 
@@ -412,6 +473,79 @@ class StudentGuardian(BaseModel):
         super().save(*args, **kwargs)
 
 
+class StudentClassroomAssignment(BaseModel):
+    student = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='student_classrooms',
+        verbose_name=_('Student'),
+    )
+    classroom = models.ForeignKey(
+        'schools.Classroom',
+        on_delete=models.CASCADE,
+        related_name='classroom_students',
+        verbose_name=_('Classroom'),
+    )
+    academic_year = models.CharField(max_length=20, verbose_name=_('Academic year'))
+    is_current = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = _('Student Classroom')
+        verbose_name_plural = _('Student Classrooms')
+        ordering = ('-created_at',)
+        unique_together = ('student', 'is_current')
+
+    def __str__(self) -> str:
+        return f'{self.student} in {self.classroom}'
+
+
+class StudentClassroomMovement(BaseModel):
+    student = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='classroom_movements',
+        verbose_name=_('Student'),
+    )
+    from_classroom = models.ForeignKey(
+        'schools.Classroom',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='+',
+        verbose_name=_('From Classroom')
+    )
+    to_classroom = models.ForeignKey(
+        'schools.Classroom',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='+',
+        verbose_name=_('To Classroom')
+    )
+    academic_year = models.CharField(max_length=20, verbose_name=_('Academic year'))
+    movement_type = models.CharField(
+        max_length=30,
+        choices=StudentClassroomMovementType.choices,
+        verbose_name=_('Movement Type')
+    )
+    reason = models.TextField(blank=True, verbose_name=_('Reason'))
+    performed_by = models.ForeignKey(
+        'users.User',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='performed_movements',
+        verbose_name=_('Performed By')
+    )
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['student']),
+            models.Index(fields=['academic_year']),
+            models.Index(fields=['movement_type']),
+        ]
+
+
 class StudentProfile(BaseModel):
     user = models.OneToOneField(
         User,
@@ -419,28 +553,36 @@ class StudentProfile(BaseModel):
         related_name='student_profile',
         verbose_name=_('User')
     )
-    knec_number = models.CharField(
-        max_length=50,
-        unique=True,
+    student_type = models.CharField(
+        max_length=20,
+        choices=StudentType.choices,
         blank=True,
-        verbose_name=_('KNEC number')
-    )
-    nemis_number = models.CharField(
-        max_length=50,
-        unique=True,
-        blank=True,
-        verbose_name=_('NEMIS number')
-    )
-    classroom = models.ForeignKey(
-        'schools.Classroom',
-        on_delete=models.SET_NULL,
         null=True,
-        blank=True,
-        related_name='students',
-        verbose_name=_('Classroom')
+        verbose_name=_('Student Type'),
+        help_text=_('Indicates whether the student is a day scholar or a boarder.')
+    )
+    knec_number = models.CharField(max_length=50, blank=True, verbose_name=_('KNEC number'))
+    nemis_number = models.CharField(max_length=50, blank=True, verbose_name=_('NEMIS number'))
+    subscribed_to_transport = models.BooleanField(
+        default=False,
+        verbose_name=_('Subscribed to school transport'),
+        help_text=_('Whether the student uses school-provided transport.')
+    )
+    subscribed_to_meals = models.BooleanField(
+        default=False,
+        verbose_name=_('Subscribed to school meals'),
+        help_text=_('Whether the student is enrolled in the school feeding program.')
     )
     medical_info = models.TextField(blank=True, null=True, verbose_name=_('Medical information'))
     additional_info = models.TextField(blank=True, null=True, verbose_name=_('Additional information'))
+    admission_date = models.DateField(null=True, blank=True, verbose_name=_('Admission date'))
+    status = models.CharField(
+        max_length=20,
+        choices=StudentStatus.choices,
+        default=StudentStatus.ACTIVE,
+        verbose_name=_('Status')
+    )
+    is_active = models.BooleanField(default=True, verbose_name=_('Active'),)
 
     class Meta:
         verbose_name = _('Student Profile')
@@ -453,8 +595,10 @@ class StudentProfile(BaseModel):
     def clean(self) -> None:
         if self.user.role.name != RoleName.STUDENT:
             raise ValidationError(_("User must have role 'student' for StudentProfile."))
-        if self.classroom and self.user.branch != self.classroom.branch:
-            raise ValidationError(_("Classroom must belong to the user's branch."))
+
+        if self.student_type == StudentType.BOARDER:
+            self.subscribed_to_meals = False
+            self.subscribed_to_transport = False
 
     @property
     def guardians(self) -> list[User]:
@@ -472,10 +616,17 @@ class GuardianProfile(BaseModel):
         related_name='guardian_profile',
         verbose_name=_('User'),
     )
-    id_number = models.CharField(max_length=20, unique=True, verbose_name=_('ID number'))
-    phone_number = models.CharField(max_length=20, unique=True, verbose_name=_('Phone number'))
-    email = models.EmailField(unique=True, blank=True, verbose_name=_('Email address'))
+    id_number = models.CharField(max_length=20, verbose_name=_('ID number'))
+    phone_number = models.CharField(max_length=20, verbose_name=_('Phone number'))
+    email = models.EmailField(blank=True, verbose_name=_('Email address'))
     occupation = models.CharField(max_length=100, blank=True, verbose_name=_('Occupation'))
+    status = models.CharField(
+        max_length=20,
+        choices=GuardianStatus.choices,
+        default=GuardianStatus.ACTIVE,
+        verbose_name=_('Status')
+    )
+    is_active = models.BooleanField(default=True, verbose_name=_('Active'), )
 
     class Meta:
         verbose_name = _('Guardian Profile')
@@ -497,10 +648,17 @@ class TeacherProfile(BaseModel):
         related_name='teacher_profile',
         verbose_name=_('User')
     )
-    tsc_number = models.CharField(max_length=50, unique=True, verbose_name=_('TSC number'))
-    id_number = models.CharField(max_length=20, unique=True, verbose_name=_('ID number'))
-    phone_number = models.CharField(max_length=20, blank=True, null=True, verbose_name=_('Phone number'))
-    email = models.EmailField(unique=True, blank=True, verbose_name=_('Email address'))
+    tsc_number = models.CharField(max_length=50, blank=True, verbose_name=_('TSC number'))
+    id_number = models.CharField(max_length=20, verbose_name=_('ID number'))
+    phone_number = models.CharField(max_length=20, blank=True, verbose_name=_('Phone number'))
+    email = models.EmailField(blank=True, verbose_name=_('Email address'))
+    status = models.CharField(
+        max_length=20,
+        choices=TeacherStatus.choices,
+        default=TeacherStatus.ACTIVE,
+        verbose_name=_('Status')
+    )
+    is_active = models.BooleanField(default=True, verbose_name=_('Active'), )
 
     class Meta:
         verbose_name = _('Teacher Profile')
@@ -522,9 +680,16 @@ class ClerkProfile(BaseModel):
         related_name='clerk_profile',
         verbose_name=_('User')
     )
-    id_number = models.CharField(max_length=20, unique=True, verbose_name=_('ID number'))
-    phone_number = models.CharField(max_length=12, blank=True, unique=True, verbose_name=_('Phone number'))
-    email = models.EmailField(unique=True, blank=True, verbose_name=_('Email address'))
+    id_number = models.CharField(max_length=20, verbose_name=_('ID number'))
+    phone_number = models.CharField(max_length=12, blank=True, verbose_name=_('Phone number'))
+    email = models.EmailField(blank=True, verbose_name=_('Email address'))
+    status = models.CharField(
+        max_length=20,
+        choices=ClerkStatus.choices,
+        default=ClerkStatus.ACTIVE,
+        verbose_name=_('Status')
+    )
+    is_active = models.BooleanField(default=True, verbose_name=_('Active'), )
 
     class Meta:
         verbose_name = _('Clerk Profile')
@@ -546,9 +711,16 @@ class AdminProfile(BaseModel):
         related_name='admin_profile',
         verbose_name=_('User')
     )
-    id_number = models.CharField(max_length=20, blank=True, unique=True, verbose_name=_('ID number'))
-    phone_number = models.CharField(max_length=12, blank=True, unique=True, verbose_name=_('Phone number'))
-    email = models.EmailField(unique=True, blank=True, verbose_name=_('Email address'))
+    id_number = models.CharField(max_length=20, blank=True, verbose_name=_('ID number'))
+    phone_number = models.CharField(max_length=12, blank=True, verbose_name=_('Phone number'))
+    email = models.EmailField(blank=True, verbose_name=_('Email address'))
+    status = models.CharField(
+        max_length=20,
+        choices=AdminStatus.choices,
+        default=AdminStatus.ACTIVE,
+        verbose_name=_('Status')
+    )
+    is_active = models.BooleanField(default=True, verbose_name=_('Active'), )
 
     class Meta:
         verbose_name = _('Admin Profile')
@@ -566,7 +738,7 @@ class AdminProfile(BaseModel):
 class Device(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     token = models.CharField(unique=True, max_length=255)
-    last_activity = models.DateTimeField(null=True, blank=True, editable=False)
+    last_activity = models.DateTimeField(blank=True, editable=False)
     is_active = models.BooleanField(default=True)
 
     def __str__(self) -> str:

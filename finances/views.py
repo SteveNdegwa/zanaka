@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from finances.services.department_services import DepartmentServices
 from finances.services.expense_budget_services import ExpenseBudgetServices
 from finances.services.expense_services import ExpenseServices
+from finances.services.fee_item_services import FeeItemServices
 from finances.services.invoice_services import InvoiceServices
 from finances.services.payment_services import PaymentServices
 from finances.services.petty_cash_services import PettyCashServices
@@ -83,10 +84,72 @@ def list_invoices(request: ExtendedRequest) -> JsonResponse:
     )
 
 
+@user_login_required(required_permission='finances.bulk_create_invoice')
+def bulk_create_invoices(request: ExtendedRequest) -> JsonResponse:
+    student_ids = request.data.pop('student_ids', [])
+    result = InvoiceServices.bulk_create_invoices(
+        user=request.user,
+        student_ids=student_ids,
+        invoice_data=request.data
+    )
+
+    bulk_invoice = result['bulk_invoice']
+
+    return ResponseProvider.created(
+        message=f'Successfully created {len(result["invoices"])} invoices in bulk',
+        data={
+            'bulk_invoice_id': str(bulk_invoice.id),
+            'bulk_reference': bulk_invoice.bulk_reference,
+            'created_count': len(result['invoices']),
+            'invoice_ids': [str(inv.id) for inv in result['invoices']]
+        }
+    )
+
+
+@user_login_required(required_permission='finances.bulk_cancel_invoice')
+def bulk_cancel_invoices(request: ExtendedRequest, bulk_invoice_id: str) -> JsonResponse:
+    reason = request.data.get('reason', '')
+
+    bulk_invoice = InvoiceServices.bulk_cancel_invoices(
+        user=request.user,
+        bulk_invoice_id=bulk_invoice_id,
+        reason=reason
+    )
+
+    return ResponseProvider.success(
+        message='Bulk invoice cancelled successfully',
+        data={
+            'bulk_invoice_id': str(bulk_invoice.id),
+            'bulk_reference': bulk_invoice.bulk_reference,
+            'cancelled_at': bulk_invoice.cancelled_at,
+            'cancelled_by': bulk_invoice.cancelled_by.full_name if bulk_invoice.cancelled_by else None,
+            'cancellation_reason': bulk_invoice.cancellation_reason
+        }
+    )
+
+
+@user_login_required(required_permission='finances.view_bulk_invoice')
+def view_bulk_invoice(request: ExtendedRequest, bulk_invoice_id: str) -> JsonResponse:
+    data = InvoiceServices.fetch_bulk_invoice(bulk_invoice_id=bulk_invoice_id)
+    return ResponseProvider.success(
+        message='Bulk invoice details fetched successfully',
+        data=data
+    )
+
+
+@user_login_required(required_permission='finances.list_bulk_invoices')
+def list_bulk_invoices(request: ExtendedRequest) -> JsonResponse:
+    bulks = InvoiceServices.list_bulk_invoices(**request.data)
+    return ResponseProvider.success(
+        message='Bulk invoices fetched successfully',
+        data=bulks
+    )
+
+
 @user_login_required(required_permission='finances.create_payment')
 def create_payment(request: ExtendedRequest, student_id) -> JsonResponse:
     payment = PaymentServices.create_payment(
-        user=request.user,
+        created_by=request.user,
         student_id=student_id,
         **request.data
     )
@@ -97,13 +160,60 @@ def create_payment(request: ExtendedRequest, student_id) -> JsonResponse:
     )
 
 
+@user_login_required(required_permission='finances.approve_payment')
+def approve_payment(request: ExtendedRequest, payment_id) -> JsonResponse:
+    payment = PaymentServices.approve_payment(
+        approved_by=request.user,
+        payment_id=payment_id
+    )
+
+    return ResponseProvider.success(
+        message='Payment approved successfully',
+        data={'id': str(payment.id)}
+    )
+
+
 @user_login_required(required_permission='finances.reverse_payment')
 def reverse_payment(request: ExtendedRequest, payment_id) -> JsonResponse:
-    PaymentServices.reverse_payment(payment_id=payment_id)
+    reverse_reason = request.data.get('reason', '')
+    PaymentServices.reverse_payment(
+        reversed_by=request.user,
+        payment_id=payment_id,
+        reverse_reason=reverse_reason
+    )
 
     return ResponseProvider.success(
         message='Payment reversed successfully'
     )
+
+
+@user_login_required(required_permission='finances.create_refund')
+def create_refund(request: ExtendedRequest, payment_id) -> JsonResponse:
+    refund = PaymentServices.create_refund(
+        refunded_by=request.user,
+        payment_id=payment_id,
+        **request.data
+    )
+
+    return ResponseProvider.created(
+        message='Refund created successfully',
+        data={'id': str(refund.id)}
+    )
+
+
+@user_login_required(required_permission='finances.cancel_refund')
+def cancel_refund(request: ExtendedRequest, refund_id: str) -> JsonResponse:
+    cancel_reason = request.data.get('reason', '')
+    PaymentServices.cancel_refund(
+        cancelled_by=request.user,
+        refund_id=refund_id,
+        reason=cancel_reason
+    )
+
+    return ResponseProvider.created(
+        message='Refund cancelled successfully',
+    )
+
 
 
 @user_login_required(required_permission='finances.view_payment')
@@ -118,7 +228,7 @@ def view_payment(request: ExtendedRequest, payment_id) -> JsonResponse:
 
 @user_login_required(required_permission='finances.list_payments')
 def list_payments(request: ExtendedRequest) -> JsonResponse:
-    payments = PaymentServices.filter_payments(**request.data)
+    payments = PaymentServices.filter_payments(filtered_by=request.user, **request.data)
 
     return ResponseProvider.success(
         message='Payments fetched successfully',
@@ -588,4 +698,113 @@ def get_budget_utilization_report(request: ExtendedRequest) -> JsonResponse:
     return ResponseProvider.success(
         message='Budget utilization report fetched successfully',
         data=report
+    )
+
+
+@user_login_required(required_permission='finances.create_fee_item')
+def create_fee_item(request: ExtendedRequest) -> JsonResponse:
+    fee_item = FeeItemServices.create_fee_item(
+        user=request.user,
+        **request.data
+    )
+
+    return ResponseProvider.created(
+        message='Fee item created successfully',
+        data={'id': str(fee_item.id)}
+    )
+
+
+@user_login_required(required_permission='finances.update_fee_item')
+def update_fee_item(request: ExtendedRequest, fee_item_id: str) -> JsonResponse:
+    FeeItemServices.update_fee_item(
+        user=request.user,
+        fee_item_id=fee_item_id,
+        **request.data
+    )
+
+    return ResponseProvider.success(
+        message='Fee item updated successfully'
+    )
+
+
+@user_login_required(required_permission='finances.deactivate_fee_item')
+def deactivate_fee_item(request: ExtendedRequest, fee_item_id: str) -> JsonResponse:
+    FeeItemServices.deactivate_fee_item(
+        user=request.user,
+        fee_item_id=fee_item_id
+    )
+
+    return ResponseProvider.success(
+        message='Fee item deactivated successfully'
+    )
+
+
+@user_login_required(required_permission='finances.activate_fee_item')
+def activate_fee_item(request: ExtendedRequest, fee_item_id: str) -> JsonResponse:
+    FeeItemServices.activate_fee_item(
+        user=request.user,
+        fee_item_id=fee_item_id
+    )
+
+    return ResponseProvider.success(
+        message='Fee item activated successfully'
+    )
+
+
+@user_login_required(required_permission='finances.view_fee_item')
+def view_fee_item(request: ExtendedRequest, fee_item_id: str) -> JsonResponse:
+    fee_item = FeeItemServices.fetch_fee_item(fee_item_id=fee_item_id)
+
+    return ResponseProvider.success(
+        message='Fee item fetched successfully',
+        data=fee_item
+    )
+
+
+@user_login_required(required_permission='finances.list_fee_items')
+def list_fee_items(request: ExtendedRequest) -> JsonResponse:
+    fee_items = FeeItemServices.list_fee_items(user=request.user, **request.data)
+
+    return ResponseProvider.success(
+        message='Fee items fetched successfully',
+        data=fee_items
+    )
+
+
+@user_login_required(required_permission='finances.create_grade_level_fee')
+def create_grade_level_fee(request: ExtendedRequest, fee_item_id: str) -> JsonResponse:
+    grade_level_fee = FeeItemServices.create_grade_level_fee(
+        user=request.user,
+        fee_item_id=fee_item_id,
+        **request.data
+    )
+
+    return ResponseProvider.created(
+        message='Grade-level fee created successfully',
+        data={'id': str(grade_level_fee.id)}
+    )
+
+
+@user_login_required(required_permission='finances.update_grade_level_fee')
+def update_grade_level_fee(request: ExtendedRequest, grade_level_fee_id: str) -> JsonResponse:
+    FeeItemServices.update_grade_level_fee(
+        user=request.user,
+        grade_level_fee_id=grade_level_fee_id,
+        **request.data
+    )
+
+    return ResponseProvider.success(
+        message='Grade-level fee updated successfully'
+    )
+
+
+@user_login_required(required_permission='finances.delete_grade_level_fee')
+def delete_grade_level_fee(request: ExtendedRequest, grade_level_fee_id: str) -> JsonResponse:
+    FeeItemServices.delete_grade_level_fee(
+        user=request.user,
+        grade_level_fee_id=grade_level_fee_id
+    )
+
+    return ResponseProvider.success(
+        message='Grade-level fee deleted successfully'
     )

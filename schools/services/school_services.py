@@ -1,5 +1,8 @@
+from typing import Optional
+
 from django.db import transaction
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from django.db.models import Q
 
 from base.services.base_services import BaseServices
 from schools.models import School, Branch, Classroom
@@ -322,6 +325,7 @@ class SchoolServices(BaseServices):
         return {
             'id': classroom.id,
             'name': classroom.name,
+            'grade_level': classroom.grade_level,
             'capacity': classroom.capacity,
             'branch_id': classroom.branch.id,
             'branch_name': classroom.branch.name,
@@ -329,14 +333,8 @@ class SchoolServices(BaseServices):
         }
 
     @classmethod
-    def filter_classrooms(cls, branch_id: str, **filters) -> list[dict]:
-        """
-        Filter and return profiles of classrooms for a given branch.
-
-        :param branch_id: ID of the branch.
-        :param filters: Additional filters for classrooms.
-        :rtype: list[dict]
-        """
-        branch = cls.get_branch(branch_id)
-        qs = Classroom.objects.filter(branch=branch, is_active=True, **filters)
+    def filter_classrooms(cls, school_id: str, **filters) -> list[dict]:
+        school = cls.get_school(school_id)
+        filters = cls._sanitize_and_validate_data(filters)
+        qs = Classroom.objects.filter(branch__school=school, is_active=True, **filters)
         return [cls.get_classroom_profile(b.id) for b in qs]

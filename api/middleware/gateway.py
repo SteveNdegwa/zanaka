@@ -1,3 +1,4 @@
+import os
 import base64
 import hashlib
 import hmac
@@ -6,7 +7,9 @@ import logging
 import re
 import traceback
 import uuid
+
 from datetime import timedelta, datetime
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from django.core.exceptions import ValidationError, PermissionDenied, ObjectDoesNotExist
 from django.db.models import F, Q
@@ -140,6 +143,7 @@ class GatewayControlMiddleware:
         RequestContext.update(
             exception_type=type(exception).__name__,
             exception_message=str(exception),
+            exception_traceback=traceback.format_exc()
         )
         response = ResponseProvider.handle_exception(exception)
 
@@ -441,12 +445,22 @@ class GatewayControlMiddleware:
 
     def encrypt_payload(self, data):
         plaintext = json.dumps(data).encode('utf-8')
-        _, pub_key_obj = self._load_system_keys()
+        priv_key_obj, pub_key_obj = self._load_system_keys()
         if not pub_key_obj:
             raise RuntimeError('No system public key available for encryption')
 
-        return pub_key_obj.encrypt(
-            plaintext,
+        aes_key = os.urandom(32)
+        iv = os.urandom(16)
+
+        cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv))
+        encryptor = cipher.encryptor()
+
+        pad_len = 16 - (len(plaintext) % 16)
+        padded_plaintext = plaintext + bytes([pad_len] * pad_len)
+        ciphertext = encryptor.update(padded_plaintext) + encryptor.finalize()
+
+        encrypted_key = pub_key_obj.encrypt(
+            aes_key,
             asym_padding.OAEP(
                 mgf=asym_padding.MGF1(algorithm=hashes.SHA256()),
                 algorithm=hashes.SHA256(),
@@ -454,28 +468,46 @@ class GatewayControlMiddleware:
             )
         )
 
-    def decrypt_payload(self, ciphertext):
-        priv_key_obj, _ = self._load_system_keys()
+        return {
+            'key': base64.b64encode(encrypted_key).decode('utf-8'),
+            'iv': base64.b64encode(iv).decode('utf-8'),
+            'data': base64.b64encode(ciphertext).decode('utf-8')
+        }
+
+    def decrypt_payload(self, payload):
+        priv_key_obj, pub_key_obj = self._load_system_keys()
         if not priv_key_obj:
             raise RuntimeError('No system private key available for decryption')
 
-        plaintext = priv_key_obj.decrypt(
-            ciphertext,
+        aes_key = priv_key_obj.decrypt(
+            base64.b64decode(payload['key']),
             asym_padding.OAEP(
                 mgf=asym_padding.MGF1(algorithm=hashes.SHA256()),
                 algorithm=hashes.SHA256(),
                 label=None
             )
         )
+
+        iv = base64.b64decode(payload['iv'])
+        ciphertext = base64.b64decode(payload['data'])
+
+        cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv))
+        decryptor = cipher.decryptor()
+        padded_plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+
+        pad_len = padded_plaintext[-1]
+        plaintext = padded_plaintext[:-pad_len]
+
         return json.loads(plaintext.decode('utf-8'))
 
     def _decrypt_request_body(self, request):
         try:
             if request.body:
-                ciphertext = base64.b64decode(request.body)
-                decrypted_data = self.decrypt_payload(ciphertext)
-                request._body = json.dumps(decrypted_data).encode('utf-8')
-                request.POST = QueryDict('', mutable=True)
+                payload = json.loads(request.body)
+                if isinstance(payload, dict) and 'key' in payload and 'iv' in payload and 'data' in payload:
+                    decrypted_data = self.decrypt_payload(payload)
+                    request._body = json.dumps(decrypted_data).encode('utf-8')
+                    request.POST = QueryDict('', mutable=True)
         except Exception as e:
             logger.warning(f'Failed to decrypt request body: {e}')
         return request
@@ -484,10 +516,8 @@ class GatewayControlMiddleware:
         try:
             if hasattr(response, 'content') and response.get('Content-Type', '').startswith('application/json'):
                 raw_content = json.loads(response.content)
-                ciphertext = self.encrypt_payload(raw_content)
-                encrypted_b64 = base64.b64encode(ciphertext).decode('utf-8')
-                wrapped_response = {'data': encrypted_b64}
-                response.content = json.dumps(wrapped_response).encode('utf-8')
+                encrypted_payload = self.encrypt_payload(raw_content)
+                response.content = json.dumps(encrypted_payload).encode('utf-8')
                 response['Content-Length'] = str(len(response.content))
         except Exception as e:
             logger.warning(f'Failed to encrypt response body: {e}')
@@ -534,6 +564,7 @@ class GatewayControlMiddleware:
                 activity_name=ctx.get('activity_name'),
                 exception_type=ctx.get('exception_type'),
                 exception_message=ctx.get('exception_message'),
+                exception_traceback=ctx.get('exception_traceback'),
                 started_at=started_at,
                 ended_at=ended_at,
                 time_taken=time_taken,

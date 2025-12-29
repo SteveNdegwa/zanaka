@@ -25,6 +25,7 @@ class RequestContext:
         'response_data': None,
         'exception_type': None,
         'exception_message': None,
+        'exception_traceback': None,
         'request_method': None,
         'request_path': None,
         'is_secure': False,

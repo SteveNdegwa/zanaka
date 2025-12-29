@@ -1,14 +1,14 @@
 from decimal import Decimal
 
-from django.db import models
+from django.db import models, transaction
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, FileExtensionValidator
 from django.db.models import Sum
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from base.models import BaseModel, GenericBaseModel
-from finances.managers import InvoiceManager
-from schools.models import GradeLevel
+from schools.models import GradeLevel, School, Branch
 from users.models import User, RoleName
 
 
@@ -48,6 +48,15 @@ class PaymentStatus(models.TextChoices):
     COMPLETED = 'COMPLETED', _('Completed')
     FAILED = 'FAILED', _('Failed')
     REVERSED = 'REVERSED', _('Reversed')
+    REFUNDED = 'REFUNDED', _('Refunded')
+    PARTIALLY_REFUNDED = 'PARTIALLY_REFUNDED', _('Partially Refunded')
+
+
+class RefundStatus(models.TextChoices):
+    PENDING = 'PENDING', _('Pending')
+    COMPLETED = 'COMPLETED', _('Completed')
+    FAILED = 'FAILED', _('Failed')
+    CANCELLED = 'CANCELLED', _('Cancelled')
 
 
 class MpesaTransactionStatus(models.TextChoices):
@@ -108,6 +117,21 @@ class BudgetPeriod(models.TextChoices):
 
 
 class FeeItem(GenericBaseModel):
+    school = models.ForeignKey(
+        School,
+        null=True,
+        on_delete=models.CASCADE,
+        related_name='fee_items',
+        verbose_name=_('School')
+    )
+    branches = models.ManyToManyField(
+        Branch,
+        blank=True,
+        related_name='fee_items',
+        verbose_name=_('Branches'),
+        help_text=_('Leave blank to apply to all branches in the school')
+    )
+
     default_amount = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -125,10 +149,19 @@ class FeeItem(GenericBaseModel):
     class Meta:
         verbose_name = _('Fee Item')
         verbose_name_plural = _('Fee Items')
-        ordering = ['category', 'name']
+        ordering = ['school', 'category', 'name']
+        unique_together = ['school', 'name']
+        indexes = [
+            models.Index(fields=['school']),
+            models.Index(fields=['school', 'is_active']),
+        ]
 
     def __str__(self) -> str:
-        return f'{self.name} - KES {self.default_amount}'
+        branch_info = " (All Branches)" if not self.branches.exists() else f" ({self.branches.count()} Branch(es))"
+        return f'{self.name} - KES {self.default_amount}{branch_info} ({self.school.name})'
+
+    def applies_to_all_branches(self) -> bool:
+        return not self.branches.exists()
 
 
 class GradeLevelFee(BaseModel):
@@ -183,7 +216,7 @@ class Invoice(BaseModel):
         blank=True,
         verbose_name=_('Updated By')
     )
-    notes = models.TextField(blank=True, verbose_name=_('Notes'))
+    notes = models.TextField(null=True, blank=True, verbose_name=_('Notes'))
     is_auto_generated = models.BooleanField(default=False, verbose_name=_('Is Auto Generated'))
     status = models.CharField(
         max_length=20,
@@ -192,8 +225,6 @@ class Invoice(BaseModel):
         db_index=True,
         verbose_name=_('Status')
     )
-
-    objects = InvoiceManager()
 
     class Meta:
         verbose_name = _('Invoice')
@@ -206,7 +237,7 @@ class Invoice(BaseModel):
         ]
 
     def __str__(self) -> str:
-        return f'Invoice {self.id} - {self.student.get_full_name()}'
+        return f'Invoice {self.id} - {self.student.full_name}'
 
     @staticmethod
     def generate_invoice_reference() -> str:
@@ -235,13 +266,13 @@ class Invoice(BaseModel):
 
     @property
     def paid_amount(self) -> float:
-        return float(
-            self.payment_allocations.filter(
-                is_active=True
-            ).aggregate(
-                total=Sum('allocated_amount')
-            )['total'] or 0
-        )
+        allocations = self.payment_allocations.filter(is_active=True)
+        total_allocated = allocations.aggregate(total=Sum('allocated_amount'))['total'] or 0
+
+        payments = Payment.objects.filter(allocations__in=allocations).distinct()
+        refunded = sum(p.completed_refunded_amount for p in payments)
+
+        return float(total_allocated - refunded)
 
     paid_amount.fget.short_description = _('Paid Amount')
 
@@ -253,6 +284,9 @@ class Invoice(BaseModel):
 
     @property
     def computed_status(self) -> str:
+        if self.status == InvoiceStatus.CANCELLED:
+            return InvoiceStatus.CANCELLED
+
         paid = self.paid_amount
 
         if paid == 0:
@@ -262,15 +296,24 @@ class Invoice(BaseModel):
         else:
             temp_status = InvoiceStatus.PARTIALLY_PAID
 
-        if temp_status != InvoiceStatus.PAID and timezone.now().date() > self.due_date:
-            temp_status = InvoiceStatus.OVERDUE
+        try:
+            due_date_obj = self.due_date
+            if isinstance(due_date_obj, str):
+                from datetime import datetime
+                due_date_obj = datetime.strptime(due_date_obj, '%Y-%m-%d').date()
+
+            if temp_status != InvoiceStatus.PAID and timezone.now().date() > due_date_obj:
+                temp_status = InvoiceStatus.OVERDUE
+        except (TypeError, ValueError):
+            pass
 
         return temp_status
 
     def save(self, *args, **kwargs) -> None:
         if not self.invoice_reference:
             self.invoice_reference = self.generate_invoice_reference()
-        self.status = self.computed_status
+        if self.status != InvoiceStatus.CANCELLED:
+            self.status = self.computed_status
         super().save(*args, **kwargs)
 
 
@@ -310,11 +353,114 @@ class InvoiceItem(BaseModel):
         ordering = ['-created_at']
 
     def __str__(self) -> str:
-        return f'{self.invoice.invoice_reference} - {self.fee_item.name}'
+        return f'{self.invoice.invoice_reference} - {self.description}'
 
     def save(self, *args, **kwargs) -> None:
         self.amount = self.unit_price * self.quantity
         super().save(*args, **kwargs)
+
+
+class BulkInvoice(BaseModel):
+    bulk_reference = models.CharField(
+        max_length=50,
+        unique=True,
+        db_index=True,
+        verbose_name=_('Bulk Reference')
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name='bulk_invoices',
+        verbose_name=_('Created By')
+    )
+
+    description = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name=_('Description'),
+        help_text=_(
+            'A short description or title for this bulk invoice (e.g., "Term 1 2025 Fees", "Transport Fees Q4")')
+    )
+
+    notes = models.TextField(blank=True, verbose_name=_('Notes'))
+    student_count = models.PositiveIntegerField(verbose_name=_('Number of Students'))
+    invoice_count = models.PositiveIntegerField(verbose_name=_('Number of Invoices Created'))
+    total_amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name=_('Total Amount Invoiced')
+    )
+    due_date = models.DateField(verbose_name=_('Common Due Date'))
+    priority = models.IntegerField(default=1, verbose_name=_('Priority'))
+    is_auto_generated = models.BooleanField(default=True, verbose_name=_('Auto Generated'))
+
+    is_cancelled = models.BooleanField(default=False, verbose_name=_('Is Cancelled'), db_index=True)
+    cancelled_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='cancelled_bulk_invoices',
+        verbose_name=_('Cancelled By')
+    )
+    cancelled_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Cancelled At'))
+    cancellation_reason = models.TextField(blank=True, verbose_name=_('Cancellation Reason'))
+
+    invoices = models.ManyToManyField(
+        Invoice,
+        related_name='bulk_invoices',
+        verbose_name=_('Invoices')
+    )
+
+    class Meta:
+        verbose_name = _('Bulk Invoice')
+        verbose_name_plural = _('Bulk Invoices')
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['created_by']),
+            models.Index(fields=['due_date']),
+            models.Index(fields=['bulk_reference']),
+            models.Index(fields=['is_cancelled']),
+        ]
+
+    def __str__(self) -> str:
+        status = " (Cancelled)" if self.is_cancelled else ""
+        desc = f" - {self.description}" if self.description else ""
+        return f'Bulk {self.bulk_reference}{desc} - {self.student_count} students{status}'
+
+    @staticmethod
+    def generate_bulk_reference() -> str:
+        today_str = timezone.now().strftime('%Y%m%d')
+        last_bulk = BulkInvoice.objects.filter(
+            bulk_reference__startswith=f'BULK-{today_str}'
+        ).order_by('created_at').last()
+        if last_bulk:
+            last_seq = int(last_bulk.bulk_reference.split('-')[-1])
+            new_seq = last_seq + 1
+        else:
+            new_seq = 1
+        return f'BULK-{today_str}-{new_seq:04d}'
+
+    @transaction.atomic
+    def cancel(self, cancelled_by: User, reason: str = '') -> None:
+        if self.is_cancelled:
+            raise ValidationError(_("This bulk invoice has already been cancelled."))
+
+        for invoice in self.invoices.select_related('student').all():
+            PaymentAllocation.objects.filter(
+                invoice=invoice,
+                is_active=True
+            ).update(is_active=False)
+
+            invoice.status = InvoiceStatus.CANCELLED
+            invoice.updated_by = cancelled_by
+            invoice.save(update_fields=['status', 'updated_by'])
+
+        self.is_cancelled = True
+        self.cancelled_by = cancelled_by
+        self.cancelled_at = timezone.now()
+        self.cancellation_reason = reason or "Bulk invoice cancelled"
+        self.save(update_fields=['is_cancelled', 'cancelled_by', 'cancelled_at', 'cancellation_reason'])
 
 
 class Payment(BaseModel):
@@ -360,13 +506,32 @@ class Payment(BaseModel):
     notes = models.TextField(blank=True, verbose_name=_('Notes'))
     metadata = models.JSONField(default=dict, blank=True, verbose_name=_('Metadata'))
 
+    priority_invoice = models.ForeignKey(
+        Invoice,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        verbose_name=_('Priority Invoice')
+    )
+
     status = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=PaymentStatus.choices,
         default=PaymentStatus.PENDING,
         db_index=True,
         verbose_name=_('Status')
     )
+
+    reversal_reason = models.TextField(blank=True, verbose_name=_('Reversal Reason'))
+    reversed_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='reversed_payments',
+        verbose_name=_('Reversed By')
+    )
+    reversed_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Reversed At'))
 
     class Meta:
         verbose_name = _('Payment')
@@ -374,11 +539,30 @@ class Payment(BaseModel):
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['payment_method', 'status']),
-            models.Index(fields=['mpesa_receipt_number']),
         ]
 
     def __str__(self) -> str:
         return f'Payment {self.payment_reference} - KES {self.amount}'
+
+    def clean(self):
+        super().clean()
+        if self.payment_method == PaymentMethod.MPESA and self.mpesa_receipt_number:
+            if Payment.objects.filter(
+                payment_method=PaymentMethod.MPESA,
+                mpesa_receipt_number=self.mpesa_receipt_number
+            ).exclude(pk=self.pk).exists():
+                raise ValidationError({
+                    'mpesa_receipt_number': _('An M-Pesa payment with this receipt number already exists.')
+                })
+
+        if self.payment_method == PaymentMethod.BANK and self.bank_reference:
+            if Payment.objects.filter(
+                payment_method=PaymentMethod.BANK,
+                bank_reference=self.bank_reference
+            ).exclude(pk=self.pk).exists():
+                raise ValidationError({
+                    'bank_reference': _('A bank payment with this reference already exists.')
+                })
 
     @staticmethod
     def generate_payment_reference() -> str:
@@ -394,31 +578,239 @@ class Payment(BaseModel):
         return f'PAY-{today_str}-{new_seq:04d}'
 
     @property
-    def utilized_amount(self) -> float:
-        return float(
-            self.allocations.filter(
-                is_active=True
-            ).aggregate(
-                total=Sum('allocated_amount')
-            )['total'] or 0
+    def allocated_amount(self) -> Decimal:
+        return Decimal(
+            self.allocations.filter(is_active=True).aggregate(total=Sum('allocated_amount'))['total'] or 0
         )
 
-    utilized_amount.fget.short_description = _('Utilized Amount')
+    allocated_amount.fget.short_description = _('Allocated Amount')
 
     @property
-    def unassigned_amount(self) -> float:
-        return float(self.amount - self.utilized_amount)
+    def completed_refunded_amount(self) -> Decimal:
+        return Decimal(
+            self.refunds.filter(status='COMPLETED').aggregate(total=Sum('amount'))['total'] or 0
+        )
+
+    completed_refunded_amount.fget.short_description = _('Completed Refunded Amount')
+
+    @property
+    def pending_refunded_amount(self) -> Decimal:
+        return Decimal(
+            self.refunds.filter(status='PENDING').aggregate(total=Sum('amount'))['total'] or 0
+        )
+
+    pending_refunded_amount.fget.short_description = _('Pending Refunded Amount')
+
+    @property
+    def effective_utilized_amount(self) -> Decimal:
+        return max(Decimal("0.00"), (self.allocated_amount + self.completed_refunded_amount))
+
+    effective_utilized_amount.fget.short_description = _('Effective Utilized Amount')
+
+    @property
+    def unassigned_amount(self) -> Decimal:
+        return Decimal(Decimal(self.amount) - self.allocated_amount - self.completed_refunded_amount)
 
     unassigned_amount.fget.short_description = _('Unassigned Amount')
+
+    @property
+    def get_available_refund_amount(self) -> Decimal:
+        if self.status in [PaymentStatus.PENDING, PaymentStatus.FAILED, PaymentStatus.REVERSED]:
+            return Decimal("0.00")
+        return Decimal(str(max(Decimal("0.00"), (self.amount - self.allocated_amount - self.completed_refunded_amount))))
+
+    get_available_refund_amount.fget.short_description = _('Available for Refund')
+
+    def reverse_payment(self, reversed_by: User, reason: str = '') -> None:
+        if not self.status in [PaymentStatus.PENDING, PaymentStatus.COMPLETED]:
+            raise ValueError(_('Only COMPLETED payments can be reversed.'))
+
+        with transaction.atomic():
+            self.allocations.filter(is_active=True).update(is_active=False)
+            self.status = PaymentStatus.REVERSED
+            self.reversal_reason = reason or "Payment reversed"
+            self.reversed_by = reversed_by
+            self.reversed_at = timezone.now()
+            self.save()
+
+            for alloc in self.allocations.all():
+                alloc.invoice.save()
+
+    def create_refund(
+        self,
+        amount: Decimal,
+        refund_method: str,
+        processed_by: User,
+        notes: str = '',
+        reference: str = '',
+        mpesa_receipt_number: str = '',
+        mpesa_phone_number: str = '',
+        bank_reference: str = '',
+        bank_name: str = '',
+        status: str = RefundStatus.COMPLETED,
+        **extra_fields
+    ) -> 'Refund':
+        amount = Decimal(amount).quantize(Decimal('0.01'))
+        available = self.get_available_refund_amount
+
+        if amount > available:
+            raise ValueError(f"Cannot refund {amount}: only {available} available")
+
+        if self.status not in (PaymentStatus.COMPLETED, PaymentStatus.PARTIALLY_REFUNDED):
+            raise ValueError("Can only refund COMPLETED or PARTIALLY_REFUNDED payments")
+
+        refund = Refund.objects.create(
+            original_payment=self,
+            amount=amount,
+            refund_method=refund_method,
+            notes=notes or f"Refund of KES {amount}",
+            reference=reference,
+            mpesa_receipt_number=mpesa_receipt_number,
+            mpesa_phone_number=mpesa_phone_number,
+            bank_reference=bank_reference,
+            bank_name=bank_name,
+            processed_by=processed_by,
+            status=status,
+            **extra_fields
+        )
+
+        if status == 'COMPLETED':
+            all_refunded = Decimal(str(self.completed_refunded_amount)) + amount
+
+            if all_refunded >= self.amount:
+                self.status = PaymentStatus.REFUNDED
+                self.allocations.filter(is_active=True).update(is_active=False)
+                for alloc in self.allocations.all():
+                    alloc.invoice.save()
+            elif all_refunded > 0:
+                self.status = PaymentStatus.PARTIALLY_REFUNDED
+
+            self.save(update_fields=['status'])
+
+        return refund
 
     def save(self, *args, **kwargs) -> None:
         if not self.payment_reference:
             self.payment_reference = self.generate_payment_reference()
 
-        if self.status != PaymentStatus.COMPLETED:
+        if self.status in (PaymentStatus.REVERSED, PaymentStatus.REFUNDED):
             self.allocations.filter(is_active=True).update(is_active=False)
 
         super().save(*args, **kwargs)
+
+
+class Refund(BaseModel):
+    original_payment = models.ForeignKey(
+        Payment,
+        on_delete=models.PROTECT,
+        related_name='refunds',
+        verbose_name=_('Original Payment')
+    )
+
+    amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))],
+        verbose_name=_('Refund Amount')
+    )
+
+    refund_method = models.CharField(
+        max_length=20,
+        choices=PaymentMethod.choices,
+        verbose_name=_('Refund Method')
+    )
+
+    mpesa_receipt_number = models.CharField(max_length=100, blank=True, verbose_name=_('M-Pesa Receipt Number'))
+    mpesa_phone_number = models.CharField(max_length=15, blank=True, verbose_name=_('M-Pesa Phone Number'))
+    mpesa_transaction_date = models.DateTimeField(null=True, blank=True, verbose_name=_('M-Pesa Transaction Date'))
+
+    bank_reference = models.CharField(max_length=100, blank=True, verbose_name=_('Bank Reference'))
+    bank_name = models.CharField(max_length=100, blank=True, verbose_name=_('Bank Name'))
+
+    transaction_id = models.CharField(max_length=100, blank=True, db_index=True, verbose_name=_('Transaction ID'))
+    reference = models.CharField(max_length=100, blank=True, verbose_name=_('General Reference'))
+
+    notes = models.TextField(blank=True, verbose_name=_('Notes'))
+
+    processed_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        verbose_name=_('Processed By')
+    )
+
+    processed_at = models.DateTimeField(default=timezone.now, verbose_name=_('Processed At'))
+
+    cancelled_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='cancelled_refunds',
+        verbose_name=_('Cancelled By')
+    )
+    cancelled_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Cancelled At'))
+    cancellation_reason = models.TextField(blank=True, verbose_name=_('Cancellation Reason'))
+
+    status = models.CharField(
+        max_length=20,
+        choices=RefundStatus.choices,
+        default=RefundStatus.PENDING,
+        db_index=True,
+        verbose_name=_('Status')
+    )
+
+    class Meta:
+        verbose_name = _('Refund')
+        verbose_name_plural = _('Refunds')
+        ordering = ['-processed_at', '-created_at']
+        indexes = [
+            models.Index(fields=['original_payment']),
+            models.Index(fields=['refund_method', 'status']),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.refund_method == PaymentMethod.MPESA and self.mpesa_receipt_number:
+            if Refund.objects.filter(
+                refund_method=PaymentMethod.MPESA,
+                mpesa_receipt_number=self.mpesa_receipt_number
+            ).exclude(pk=self.pk).exists():
+                raise ValidationError({
+                    'mpesa_receipt_number': _('An M-Pesa refund with this receipt number already exists.')
+                })
+
+        if self.refund_method == PaymentMethod.BANK and self.bank_reference:
+            if Refund.objects.filter(
+                refund_method=PaymentMethod.BANK,
+                bank_reference=self.bank_reference
+            ).exclude(pk=self.pk).exists():
+                raise ValidationError({
+                    'bank_reference': _('A bank refund with this reference already exists.')
+                })
+
+    def __str__(self) -> str:
+        return f'Refund KES {self.amount} ({self.get_refund_method_display()}) - {self.original_payment.payment_reference}'
+
+    def cancel_refund(self, cancelled_by: User, reason: str = '') -> None:
+        # if self.status != RefundStatus.PENDING:
+        #     raise ValueError(_('Only PENDING refunds can be cancelled.'))
+
+        with transaction.atomic():
+            self.status = RefundStatus.CANCELLED
+            self.cancelled_by = cancelled_by
+            self.cancelled_at = timezone.now()
+            self.cancellation_reason = reason or "Refund cancelled"
+            self.save(update_fields=['status', 'cancelled_by', 'cancelled_at', 'cancellation_reason'])
+
+            original_payment = self.original_payment
+            if original_payment.status == PaymentStatus.PARTIALLY_REFUNDED:
+                if not original_payment.refunds.filter(status=RefundStatus.COMPLETED).exists():
+                    original_payment.status = PaymentStatus.COMPLETED
+                    original_payment.save(update_fields=['status'])
+
+    @property
+    def student(self):
+        return self.original_payment.student
 
 
 class MpesaTransaction(BaseModel):
@@ -547,7 +939,7 @@ class ExpenseCategory(GenericBaseModel):
         return ' > '.join(path)
 
     def get_total_spent(self, start_date=None, end_date=None) -> float:
-        expenses = self.expenses.filter(status='approved')
+        expenses = self.expenses.filter(status='APPROVED')
         if start_date:
             expenses = expenses.filter(expense_date__gte=start_date)
         if end_date:
@@ -611,7 +1003,7 @@ class Vendor(GenericBaseModel):
         return self.name
 
     def get_total_paid(self, year=None) -> float:
-        expenses = self.expenses.filter(status='approved')
+        expenses = self.expenses.filter(status='APPROVED')
         if year:
             expenses = expenses.filter(expense_date__year=year)
         return float(expenses.aggregate(Sum('amount'))['amount__sum'] or 0)
@@ -644,7 +1036,7 @@ class Department(GenericBaseModel):
         return self.name
 
     def get_total_expenses(self, start_date=None, end_date=None) -> float:
-        expenses = self.expenses.filter(status='approved')
+        expenses = self.expenses.filter(status='APPROVED')
         if start_date:
             expenses = expenses.filter(expense_date__gte=start_date)
         if end_date:
@@ -654,7 +1046,7 @@ class Department(GenericBaseModel):
     def get_budget_utilization(self) -> int:
         if self.budget_allocated > 0:
             spent = self.get_total_expenses(start_date=timezone.now().replace(month=1, day=1).date())
-            return round((spent / self.budget_allocated) * 100)
+            return round((spent / float(self.budget_allocated)) * 100)
         return 0
 
 
@@ -713,13 +1105,11 @@ class Expense(GenericBaseModel):
         verbose_name=_('Status')
     )
 
-    # Reference numbers
     invoice_number = models.CharField(max_length=100, blank=True, verbose_name=_('Invoice Number'))
     receipt_number = models.CharField(max_length=100, blank=True, verbose_name=_('Receipt Number'))
     cheque_number = models.CharField(max_length=50, blank=True, verbose_name=_('Cheque Number'))
     transaction_reference = models.CharField(max_length=100, blank=True, verbose_name=_('Transaction Reference'))
 
-    # Approval workflow
     requested_by = models.ForeignKey(
         User,
         on_delete=models.PROTECT,
@@ -757,7 +1147,6 @@ class Expense(GenericBaseModel):
         verbose_name=_('Paid By')
     )
 
-    # Tax information
     is_taxable = models.BooleanField(default=False, verbose_name=_('Is Taxable'))
     tax_rate = models.DecimalField(
         max_digits=5,
@@ -801,7 +1190,6 @@ class Expense(GenericBaseModel):
         if not self.expense_reference:
             self.expense_reference = self.generate_expense_reference()
 
-        # Calculate tax
         if self.is_taxable:
             self.tax_amount = self.amount * (self.tax_rate / 100)
         else:
@@ -813,7 +1201,7 @@ class Expense(GenericBaseModel):
     def generate_expense_reference() -> str:
         prefix = timezone.now().strftime('EXP%Y%m')
         count = Expense.objects.filter(
-            expense_number__startswith=prefix
+            expense_reference__startswith=prefix
         ).count() + 1
         return f'{prefix}{count:05d}'
 
@@ -906,7 +1294,7 @@ class PettyCash(BaseModel):
     def replenish(self, amount, replenished_by, notes='') -> None:
         PettyCashTransaction.objects.create(
             petty_cash_fund=self,
-            transaction_type='replenishment',
+            transaction_type='REPLENISHMENT',
             amount=amount,
             processed_by=replenished_by,
             notes=notes
@@ -958,9 +1346,9 @@ class PettyCashTransaction(BaseModel):
     def save(self, *args, **kwargs) -> None:
         if not self.pk:
             self.balance_before = self.petty_cash_fund.current_balance
-            if self.transaction_type == 'disbursement':
+            if self.transaction_type == PettyCashTransactionType.DISBURSEMENT:
                 self.balance_after = self.balance_before - self.amount
-            else:  # replenishment or adjustment
+            else:
                 self.balance_after = self.balance_before + self.amount
 
             self.petty_cash_fund.current_balance = self.balance_after
@@ -1025,7 +1413,7 @@ class ExpenseBudget(BaseModel):
 
     def get_utilization_percentage(self) -> float:
         spent = self.get_spent_amount()
-        percentage = (spent / self.budget_amount * 100) if self.budget_amount > 0 else 0
+        percentage = (spent / float(self.budget_amount) * 100) if self.budget_amount > 0 else 0
         return float(round(percentage, 2))
 
     def get_remaining_budget(self) -> float:
@@ -1098,7 +1486,6 @@ class BalanceSheet(BaseModel):
         ordering = ['-created_at']
         verbose_name = _('Balance Sheet')
         verbose_name_plural = _('Balance Sheets')
-
 
     def __str__(self) -> str:
         return f'Balance Sheet - {self.date}'

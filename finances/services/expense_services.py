@@ -492,10 +492,10 @@ class ExpenseServices(BaseServices):
         field_types = {'amount': float}
         filters = cls._sanitize_and_validate_data(filters, field_types=field_types)
 
-        expense_field_names = set(Expense._meta.fields_map.keys())
+        expense_field_names = {f.name for f in Expense._meta.get_fields()}
         cleaned_filters = {k: v for k, v in filters.items() if k in expense_field_names}
 
-        qs = Expense.objects.filter(**cleaned_filters)
+        qs = Expense.objects.filter(**cleaned_filters).order_by('-created_at')
 
         # Date range filters
         if filters.get('start_date'):

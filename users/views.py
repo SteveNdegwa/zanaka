@@ -10,12 +10,11 @@ from .services.user_services import UserServices
 @user_login_required
 def create_user(request: ExtendedRequest, role_name: str) -> JsonResponse:
     role_name = role_name.lower()
-    perm = f'users.create_{role_name.lower()}'
-    if not request.user.has_permission(perm):
-        raise PermissionDenied()
+    # perm = f'users.create_{role_name.lower()}'
+    # if not request.user.has_permission(perm):
+    #     raise PermissionDenied()
 
-    request.data['branch_id'] = request.user.branch.id
-    user = UserServices.create_user(role_name, **request.data)
+    user = UserServices.create_user(request.user, role_name, **request.data)
 
     return ResponseProvider.created(
         message=f'{role_name.title()} created successfully',
@@ -25,13 +24,13 @@ def create_user(request: ExtendedRequest, role_name: str) -> JsonResponse:
 
 @user_login_required
 def update_user(request: ExtendedRequest, user_id: str) -> JsonResponse:
-    if user_id != request.user.id:
-        user_to_update = UserServices.get_user(user_id)
-        perm = f'users.update_{user_to_update.role.name}'
-        if not request.user.has_permission(perm):
-            raise PermissionDenied()
+    # if user_id != request.user.id:
+    #     user_to_update = UserServices.get_user(user_id)
+    #     perm = f'users.update_{user_to_update.role.name}'
+    #     if not request.user.has_permission(perm):
+    #         raise PermissionDenied()
 
-    UserServices.update_user(user_id, **request.data)
+    UserServices.update_user(request.user, user_id, **request.data)
 
     return ResponseProvider.success(
         message='User updated successfully'
@@ -40,11 +39,11 @@ def update_user(request: ExtendedRequest, user_id: str) -> JsonResponse:
 
 @user_login_required
 def delete_user(request: ExtendedRequest, user_id: str) -> JsonResponse:
-    if user_id != request.user.id:
-        user_to_update = UserServices.get_user(user_id)
-        perm = f'users.delete_{user_to_update.role.name}'
-        if not request.user.has_permission(perm):
-            raise PermissionDenied()
+    # if user_id != request.user.id:
+    #     user_to_update = UserServices.get_user(user_id)
+    #     perm = f'users.delete_{user_to_update.role.name}'
+    #     if not request.user.has_permission(perm):
+    #         raise PermissionDenied()
 
     UserServices.delete_user(user_id)
 
@@ -56,10 +55,10 @@ def delete_user(request: ExtendedRequest, user_id: str) -> JsonResponse:
 @user_login_required
 def view_user(request: ExtendedRequest, user_id: str) -> JsonResponse:
     user_profile = UserServices.get_user_profile(user_id)
-    if user_id != request.user.id:
-        perm = f'users.view_{user_profile.get('role_name')}'
-        if not request.user.has_permission(perm):
-            raise PermissionDenied()
+    # if user_id != request.user.id:
+    #     perm = f'users.view_{user_profile.get('role_name')}'
+    #     if not request.user.has_permission(perm):
+    #         raise PermissionDenied()
 
     return ResponseProvider.success(
         message='User data fetched successfully',
@@ -68,15 +67,14 @@ def view_user(request: ExtendedRequest, user_id: str) -> JsonResponse:
 
 @user_login_required
 def list_users(request: ExtendedRequest) -> JsonResponse:
-    if not request.user.has_permission('users.list_all_users'):
-        if not 'role_name' in request.data:
-            raise PermissionDenied()
-        perm = f'users.list_{request.data.get('role_name')}s'
-        if not request.user.has_permission(perm):
-            raise PermissionDenied()
+    # if not request.user.has_permission('users.list_all_users'):
+    #     if not 'role_name' in request.data:
+    #         raise PermissionDenied()
+    #     perm = f'users.list_{request.data.get('role_name')}s'
+    #     if not request.user.has_permission(perm):
+    #         raise PermissionDenied()
 
-    request.data.set_default('branch_id', request.user.branch.id)
-    users = UserServices.filter_users(**request.data)
+    users = UserServices.filter_users(request.user, **request.data)
 
     return ResponseProvider.success(
         message='Users fetched successfully',
