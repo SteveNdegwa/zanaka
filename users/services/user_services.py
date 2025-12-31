@@ -452,10 +452,11 @@ class UserServices(BaseServices):
         return {**user_data, **profile_data}
 
     @classmethod
-    def filter_users(cls, filtered_by: User, **filters) -> list[dict]:
+    def filter_users(cls, **filters) -> list[dict]:
         filters = cls._sanitize_and_validate_data(filters)
 
         user_ids = filters.pop('user_ids', [])
+        role_names = filters.pop('role_names', [])
         branch = filters.pop('branch', None)
         search_term = filters.pop('search_term', None)
         grade_level = filters.pop('grade_level', None)
@@ -464,10 +465,6 @@ class UserServices(BaseServices):
         base_filter = Q(is_active=True)
         if branch:
             base_filter &= Q(branches__id=branch.id)
-        else:
-            branch_ids = list(filtered_by.branches.all().values_list('id', flat=True))
-            if branch_ids:
-                base_filter &= Q(branches__id__in=branch_ids)
 
         qs = User.objects.filter(base_filter).select_related('role', 'school').order_by('-created_at')
 
@@ -514,11 +511,21 @@ class UserServices(BaseServices):
         if user_ids:
             qs = qs.filter(id__in=user_ids)
 
+        if role_names:
+            roles = [cls.get_role(role_name) for role_name in role_names]
+            qs = qs.filter(role__in=roles)
+
         if grade_level and role.name == RoleName.STUDENT:
-            qs = qs.filter(student_classrooms__classroom__grade_level=grade_level, is_current=True)
+            qs = qs.filter(
+                student_classrooms__classroom__grade_level=grade_level,
+                student_classrooms__is_current=True
+            )
 
         if classroom and role.name == RoleName.STUDENT:
-            qs = qs.filter(student_classrooms__classroom=classroom, is_current=True)
+            qs = qs.filter(
+                student_classrooms__classroom=classroom,
+                student_classrooms__is_current=True
+            )
 
         return [cls.get_user_profile(user.id) for user in qs]
 

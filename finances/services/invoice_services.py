@@ -21,6 +21,7 @@ class InvoiceServices(BaseServices):
         'student_id': ('users.User', 'student'),
         'created_by_id': ('users.User', 'created_by'),
         'updated_by_id': ('users.User', 'updated_by'),
+        'fee_item_id': ('finances.FeeItem', 'fee_item')
     }
 
     @classmethod
@@ -344,6 +345,13 @@ class InvoiceServices(BaseServices):
                 search_q |= Q(**{f'{field}__icontains': search_term})
 
             qs = qs.filter(search_q)
+
+        fee_item = filters.get('fee_item')
+        if fee_item:
+            qs = qs.filter(
+                items__fee_item=fee_item,
+                items__is_active=True
+            ).distinct()
 
         invoice_ids = qs.values_list('id', flat=True)
         return [cls.fetch_invoice(invoice_id) for invoice_id in invoice_ids]

@@ -25,21 +25,16 @@ class FeeItemServices(BaseServices):
     def get_fee_item(
         cls,
         fee_item_id: str,
-        is_active: Optional[bool] = None,
         select_for_update: bool = False
     ) -> FeeItem:
         """
         Retrieve a single fee item by ID, optionally filtering by active status.
 
         :param fee_item_id: ID of the fee item to retrieve.
-        :param is_active: Optional filter for active/inactive.
         :param select_for_update: Lock row for update if True.
         :return: FeeItem instance.
         """
-        filters = Q(id=fee_item_id)
-        if is_active is not None:
-            filters &= Q(is_active=is_active)
-
+        filters = Q(id=fee_item_id, is_active=True)
         qs = FeeItem.objects
         if select_for_update:
             qs = qs.select_for_update()
@@ -56,7 +51,7 @@ class FeeItemServices(BaseServices):
         :param data: Fee item data.
         :return: Created FeeItem instance.
         """
-        required_fields = {'name', 'default_amount', 'category', 'school_id'}
+        required_fields = {'name', 'default_amount', 'category'}
         field_types = {
             'default_amount': float,
             'is_active': bool
@@ -235,7 +230,9 @@ class FeeItemServices(BaseServices):
         filters = cls._sanitize_and_validate_data(filters, field_types=field_types)
 
         qs = FeeItem.objects.filter(
-            school=user.school, **filters
+            school=user.school,
+            is_active=True,
+            **filters
         ).select_related('school').prefetch_related('branches')
 
         if filters.get('is_active') is not None:

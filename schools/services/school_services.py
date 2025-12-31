@@ -1,11 +1,13 @@
 from typing import Optional
 
 from django.db import transaction
-from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from django.core.exceptions import ValidationError, ObjectDoesNotExist, PermissionDenied
 from django.db.models import Q
 
 from base.services.base_services import BaseServices
 from schools.models import School, Branch, Classroom
+from users.models import User
+from users.services.user_services import UserServices
 
 
 class SchoolServices(BaseServices):
@@ -144,34 +146,21 @@ class SchoolServices(BaseServices):
 
     @classmethod
     @transaction.atomic
-    def create_branch(cls, school_id: str, **data) -> Branch:
-        """
-        Create a new branch under a school.
-
-        :param school_id: ID of the school.
-        :param data: Data for the new branch.
-        :raises ValidationError: If required fields are missing or branch already exists.
-        :rtype: Branch
-        """
-        school = cls.get_school(school_id)
+    def create_branch(cls, school: School, **data) -> Branch:
         required_fields = {'name'}
         data = cls._sanitize_and_validate_data(data, required_fields=required_fields)
         if Branch.objects.filter(school=school, name=data.get('name')):
             raise ValidationError('Branch already exists')
+        print(data)
         return Branch.objects.create(school=school, **data)
 
     @classmethod
     @transaction.atomic
-    def update_branch(cls, branch_id: str, **data) -> Branch:
-        """
-        Update an existing branch.
-
-        :param branch_id: ID of the branch.
-        :param data: Fields to update.
-        :raises ValidationError: If branch does not exist or data is invalid.
-        :rtype: Branch
-        """
+    def update_branch(cls, updated_by: User, branch_id: str, **data) -> Branch:
         branch = cls.get_branch(branch_id, True)
+        if branch.school != updated_by.school:
+            raise PermissionDenied()
+
         allowed_fields = {
             'location',
             'contact_email',
@@ -179,6 +168,7 @@ class SchoolServices(BaseServices):
             'principal_id',
             'capacity',
             'established_date',
+            'is_active'
         }
         data = cls._sanitize_and_validate_data(data, allowed_fields=allowed_fields)
         for k, v in data.items():
@@ -197,6 +187,10 @@ class SchoolServices(BaseServices):
         :rtype: None
         """
         branch = cls.get_branch(branch_id, True)
+        if UserServices.filter_users(branch=branch):
+            raise ValidationError(
+                'Users already exist for this branch. Please reassign them to another branch before proceeding.'
+            )
         branch.is_active = False
         branch.save(update_fields=['is_active'])
 
@@ -286,7 +280,7 @@ class SchoolServices(BaseServices):
         :rtype: Classroom
         """
         classroom = cls.get_classroom(classroom_id)
-        allowed_fields = {'branch_id', 'name', 'capacity'}
+        allowed_fields = {'name', 'grade_level', 'capacity', 'is_active'}
         data = cls._sanitize_and_validate_data(data, allowed_fields=allowed_fields)
         if 'name' in data:
             if Classroom.objects.filter(branch=classroom.branch, name=data.get('name')).exclude(
@@ -309,6 +303,11 @@ class SchoolServices(BaseServices):
         :rtype: None
         """
         classroom = cls.get_classroom(classroom_id, True)
+        if UserServices.filter_users(classroom=classroom):
+            raise ValidationError(
+                'Students already exists in this classroom.\n'
+                'Please reassign them to another classroom before proceeding.'
+            )
         classroom.is_active = False
         classroom.save(update_fields=['is_active'])
 

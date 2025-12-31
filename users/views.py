@@ -74,7 +74,7 @@ def list_users(request: ExtendedRequest) -> JsonResponse:
     #     if not request.user.has_permission(perm):
     #         raise PermissionDenied()
 
-    users = UserServices.filter_users(request.user, **request.data)
+    users = UserServices.filter_users(school=request.user.school, **request.data)
 
     return ResponseProvider.success(
         message='Users fetched successfully',

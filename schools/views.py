@@ -74,11 +74,8 @@ def list_branches(request: ExtendedRequest) -> JsonResponse:
 
 
 @user_login_required(required_permission='schools.create_branch')
-def create_branch(request: ExtendedRequest, school_id: str) -> JsonResponse:
-    if school_id != request.user.branch.school.id:
-        raise PermissionDenied()
-
-    branch = SchoolServices.create_branch(school_id, **request.data)
+def create_branch(request: ExtendedRequest) -> JsonResponse:
+    branch = SchoolServices.create_branch(request.user.school, **request.data)
 
     return ResponseProvider.created(
         message='Branch created successfully',
@@ -88,8 +85,8 @@ def create_branch(request: ExtendedRequest, school_id: str) -> JsonResponse:
 
 @user_login_required(required_permission='schools.view_branch')
 def view_branch(request: ExtendedRequest, branch_id: str) -> JsonResponse:
-    if branch_id != request.user.branch.id:
-        raise PermissionDenied()
+    # if branch_id != request.user.school.id:
+    #     raise PermissionDenied()
 
     branch = SchoolServices.get_branch_profile(branch_id)
 
@@ -101,10 +98,8 @@ def view_branch(request: ExtendedRequest, branch_id: str) -> JsonResponse:
 
 @user_login_required(required_permission='schools.update_branch')
 def update_branch(request: ExtendedRequest, branch_id: str) -> JsonResponse:
-    if branch_id != request.user.branch.id:
-        raise PermissionDenied()
 
-    SchoolServices.update_branch(branch_id, **request.data)
+    SchoolServices.update_branch(request.user, branch_id, **request.data)
 
     return ResponseProvider.success(
         message='Branch updated successfully'
@@ -113,8 +108,8 @@ def update_branch(request: ExtendedRequest, branch_id: str) -> JsonResponse:
 
 @user_login_required(required_permission='schools.delete_branch')
 def delete_branch(request: ExtendedRequest, branch_id: str) -> JsonResponse:
-    if branch_id != request.user.branch.id:
-        raise PermissionDenied()
+    # if branch_id != request.user.branch.id:
+    #     raise PermissionDenied()
 
     SchoolServices.delete_branch(branch_id)
 
@@ -134,11 +129,9 @@ def list_classrooms(request: ExtendedRequest) -> JsonResponse:
 
 
 @user_login_required(required_permission='schools.create_classroom')
-def create_classroom(request: ExtendedRequest, branch_id: str) -> JsonResponse:
-    if branch_id != request.user.branch.id:
-        raise PermissionDenied()
+def create_classroom(request: ExtendedRequest) -> JsonResponse:
 
-    classroom = SchoolServices.create_classroom(branch_id, **request.data)
+    classroom = SchoolServices.create_classroom(**request.data)
 
     return ResponseProvider.created(
         message='Classroom created successfully',
@@ -149,8 +142,8 @@ def create_classroom(request: ExtendedRequest, branch_id: str) -> JsonResponse:
 @user_login_required(required_permission='schools.view_classroom')
 def view_classroom(request: ExtendedRequest, classroom_id: str) -> JsonResponse:
     classroom = SchoolServices.get_classroom(classroom_id)
-    if classroom.branch.id != request.user.branch.id:
-        raise PermissionDenied()
+    # if classroom.branch.id != request.user.branch.id:
+    #     raise PermissionDenied()
 
     classroom = SchoolServices.get_classroom_profile(classroom_id)
 
@@ -162,9 +155,9 @@ def view_classroom(request: ExtendedRequest, classroom_id: str) -> JsonResponse:
 
 @user_login_required(required_permission='schools.update_classroom')
 def update_classroom(request: ExtendedRequest, classroom_id: str) -> JsonResponse:
-    classroom = SchoolServices.get_classroom(classroom_id)
-    if classroom.branch.id != request.user.branch.id:
-        raise PermissionDenied()
+    # classroom = SchoolServices.get_classroom(classroom_id)
+    # if classroom.branch.id != request.user.branch.id:
+    #     raise PermissionDenied()
 
     SchoolServices.update_classroom(classroom_id, **request.data)
 
@@ -175,9 +168,9 @@ def update_classroom(request: ExtendedRequest, classroom_id: str) -> JsonRespons
 
 @user_login_required(required_permission='schools.delete_classroom')
 def delete_classroom(request: ExtendedRequest, classroom_id: str) -> JsonResponse:
-    classroom = SchoolServices.get_classroom(classroom_id)
-    if classroom.branch.id != request.user.branch.id:
-        raise PermissionDenied()
+    # classroom = SchoolServices.get_classroom(classroom_id)
+    # if classroom.branch.id != request.user.branch.id:
+    #     raise PermissionDenied()
 
     SchoolServices.delete_classroom(classroom_id)
 

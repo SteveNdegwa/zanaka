@@ -116,7 +116,7 @@ class BranchAdmin(admin.ModelAdmin):
         if not obj.principal:
             return "—"
         url = f"/admin/users/user/{obj.principal.id}/change/"
-        return format_html('<a href="{}">{}</a>', url, obj.principal.get_full_name() or obj.principal.username)
+        return format_html('<a href="{}">{}</a>', url, obj.principal.full_name or obj.principal.username)
     principal_link.short_description = _("Principal")
 
     def colored_status(self, obj):
