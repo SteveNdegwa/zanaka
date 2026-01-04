@@ -49,11 +49,12 @@ class VendorServices(BaseServices):
 
         vendor = Vendor.objects.create(
             name=data['name'],
+            school=user.school,
             contact_person=data.get('contact_person', ''),
             email=data.get('email', ''),
             phone=data.get('phone', ''),
             address=data.get('address', ''),
-            tax_id=data.get('tax_id', ''),
+            kra_pin=data.get('kra_pin', ''),
             payment_terms=data.get('payment_terms', 'net_30'),
             mpesa_pochi_number=data.get('mpesa_pochi_number', ''),
             mpesa_paybill_number=data.get('mpesa_paybill_number', ''),
@@ -63,7 +64,6 @@ class VendorServices(BaseServices):
             bank_account=data.get('bank_account', ''),
             bank_branch=data.get('bank_branch', ''),
             notes=data.get('notes', ''),
-            created_by=user
         )
 
         return vendor
@@ -85,7 +85,7 @@ class VendorServices(BaseServices):
         """
         vendor = cls.get_vendor(vendor_id, select_for_update=True)
 
-        update_fields = ['updated_by']
+        update_fields = []
 
         if 'name' in data:
             vendor.name = data['name']
@@ -107,9 +107,10 @@ class VendorServices(BaseServices):
             vendor.address = data['address']
             update_fields.append('address')
 
-        if 'tax_id' in data:
-            vendor.tax_id = data['tax_id']
-            update_fields.append('tax_id')
+        if 'kra_pin' in data:
+            print("here")
+            vendor.kra_pin = data['kra_pin']
+            update_fields.append('kra_pin')
 
         if 'payment_terms' in data:
             vendor.payment_terms = data['payment_terms']
@@ -147,7 +148,6 @@ class VendorServices(BaseServices):
             vendor.notes = data['notes']
             update_fields.append('notes')
 
-        vendor.updated_by = user
         vendor.save(update_fields=update_fields)
 
         return vendor
@@ -167,8 +167,7 @@ class VendorServices(BaseServices):
         """
         vendor = cls.get_vendor(vendor_id, select_for_update=True)
         vendor.is_active = False
-        vendor.updated_by = user
-        vendor.save(update_fields=['is_active', 'updated_by'])
+        vendor.save(update_fields=['is_active'])
         return vendor
 
     @classmethod
@@ -210,7 +209,7 @@ class VendorServices(BaseServices):
             'email': vendor.email,
             'phone': vendor.phone,
             'address': vendor.address,
-            'tax_id': vendor.tax_id,
+            'kra_pin': vendor.kra_pin,
             'payment_terms': vendor.payment_terms,
             'mpesa_pochi_number': vendor.mpesa_pochi_number,
             'mpesa_paybill_number': vendor.mpesa_paybill_number,
@@ -242,7 +241,7 @@ class VendorServices(BaseServices):
         vendor_field_names = {f.name for f in Vendor._meta.get_fields()}
         cleaned_filters = {k: v for k, v in filters.items() if k in vendor_field_names}
 
-        qs = Vendor.objects.filter(**cleaned_filters).order_by('-created_at')
+        qs = Vendor.objects.filter(is_active=True, **cleaned_filters).order_by('-created_at')
 
         search_term = filters.get('search_term')
         if search_term:

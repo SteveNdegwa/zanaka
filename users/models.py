@@ -188,7 +188,7 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
     username = models.CharField(max_length=150, unique=True, verbose_name=_('Username'))
     first_name = models.CharField(max_length=150, blank=True, verbose_name=_('First name'))
     last_name = models.CharField(max_length=150, blank=True, verbose_name=_('Last name'))
-    other_name = models.CharField(max_length=150, blank=True, verbose_name=_('Other name'))
+    other_name = models.CharField(max_length=150, blank=True, null=True, verbose_name=_('Other name'))
     date_of_birth = models.DateField(null=True, blank=True, verbose_name=_('Date of birth'))
     gender = models.CharField(max_length=10, choices=Gender.choices, default=Gender.OTHER)
     town_of_residence = models.CharField(max_length=100, blank=True, null=True, verbose_name=_('Town of residence'))

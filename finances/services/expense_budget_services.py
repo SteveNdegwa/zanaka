@@ -29,7 +29,7 @@ class ExpenseBudgetServices(BaseServices):
         qs = ExpenseBudget.objects
         if select_for_update:
             qs = qs.select_for_update()
-        return qs.get(id=budget_id)
+        return qs.get(id=budget_id, is_active=True)
 
     @classmethod
     @transaction.atomic
@@ -164,7 +164,6 @@ class ExpenseBudgetServices(BaseServices):
             'fiscal_year': budget.fiscal_year,
             'category_id': str(budget.category.id),
             'category_name': budget.category.name,
-            'category_full_path': budget.category.get_full_path(),
             'department_id': str(budget.department.id) if budget.department else None,
             'department_name': budget.department.name if budget.department else None,
             'budget_amount': budget.budget_amount,
@@ -235,7 +234,7 @@ class ExpenseBudgetServices(BaseServices):
             report.append({
                 'budget_id': str(budget.id),
                 'fiscal_year': budget.fiscal_year,
-                'category_name': budget.category.get_full_path(),
+                'category_name': budget.category.name(),
                 'department_name': budget.department.name if budget.department else 'All Departments',
                 'budget_amount': budget.budget_amount,
                 'spent_amount': spent_amount,

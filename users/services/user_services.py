@@ -1,3 +1,5 @@
+import logging
+
 from typing import Optional
 
 from django.db import transaction
@@ -5,6 +7,8 @@ from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.db.models import Q
 
 from base.services.base_services import BaseServices
+from notifications.models import NotificationType
+from notifications.services.notification_services import NotificationServices
 from schools.models import Branch, Classroom
 from users.models import (
     StudentGuardian,
@@ -18,6 +22,8 @@ from users.models import (
     RoleName, StudentClassroomAssignment, StudentClassroomMovementType, StudentClassroomMovement
 )
 from utils.common import validate_password
+
+logger = logging.getLogger(__name__)
 
 
 class UserServices(BaseServices):
@@ -238,6 +244,35 @@ class UserServices(BaseServices):
                     movement_type=StudentClassroomMovementType.ADMISSION,
                 )
                 user.branches.set([data.get('classroom').branch])
+
+            for student_guardian in user.student_guardians.filter(
+                    Q(is_primary=True) | Q(can_receive_reports=True), is_active=True):
+                guardian = student_guardian.guardian
+                classroom = data.get('classroom')
+                notification_context = {
+                    "guardian_name": guardian.full_name,
+                    "student_full_name": user.full_name,
+                    "reg_number": user.reg_number,
+                    "admission_date": user.student_profile.admission_date,
+                    "academic_year": data.get('academic_year', "N/A"),
+                    "classroom_name": classroom.name if classroom else None,
+                }
+                try:
+                    NotificationServices.send_notification(
+                        recipients=[guardian.guardian_profile.email],
+                        notification_type=NotificationType.EMAIL,
+                        template_name='email_new_student',
+                        context=notification_context,
+                    )
+
+                    # NotificationServices.send_notification(
+                    #     recipient=[guardian.guardian_profile.phone_number],
+                    #     notification_type=NotificationType.SMS,
+                    #     template_name='sms_new_student',
+                    #     context=notification_context,
+                    # )
+                except Exception as ex:
+                    logger.exception(f'Send new student notification error: {ex}')
 
         return user
 

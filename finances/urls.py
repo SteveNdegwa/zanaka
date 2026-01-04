@@ -17,7 +17,7 @@ urlpatterns = [
     path('bulk-invoices/<str:bulk_invoice_id>/cancel/', views.bulk_cancel_invoices, name='bulk-cancel-invoices'),
     path('bulk-invoices/', views.list_bulk_invoices, name='list-bulk-invoices'),
 
-    #v  Payment management
+    # Payment management
     path('students/<str:student_id>/payments/create/', views.create_payment, name='create-payment'),
     path('payments/<str:payment_id>/approve/', views.approve_payment, name='approve-payment'),
     path('payments/<str:payment_id>/reverse/', views.reverse_payment, name='reverse-payment'),
@@ -49,6 +49,14 @@ urlpatterns = [
         views.remove_expense_attachment,
         name='remove-expense-attachment'
     ),
+
+    # Expense categories
+    path('expense-categories/create/', views.create_expense_category, name='create_expense_category'),
+    path('expense-categories/<str:category_id>/update/', views.update_expense_category, name='update_expense_category'),
+    path('expense-categories/<str:category_id>/deactivate/', views.deactivate_expense_category, name='deactivate_expense_category'),
+    path('expense-categories/<str:category_id>/activate/', views.activate_expense_category, name='activate_expense_category'),
+    path('expense-categories/<str:category_id>/', views.view_expense_category, name='view_expense_category'),
+    path('expense-categories/', views.list_expense_categories, name='list_expense_categories'),
 
     # Vendor management
     path('vendors/create/', views.create_vendor, name='create-vendor'),
@@ -118,4 +126,7 @@ urlpatterns = [
         views.delete_grade_level_fee,
         name='delete_grade_level_fee'
     ),
+
+    # Homepage
+    path('homepage-statistics/', views.get_homepage_statistics, name='homepage_statistics'),
 ]

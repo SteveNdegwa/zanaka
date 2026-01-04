@@ -1,14 +1,21 @@
+import logging
+
 from decimal import Decimal
 from typing import Optional
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q, F
+from django.utils import timezone
 
 from base.services.base_services import BaseServices
 from finances.models import Invoice, FeeItem, GradeLevelFee, InvoiceItem, PaymentAllocation, InvoiceStatus, BulkInvoice
+from notifications.models import NotificationType
+from notifications.services.notification_services import NotificationServices
 from users.models import User, RoleName
 from users.services.user_services import UserServices
+
+logger = logging.getLogger(__name__)
 
 
 class InvoiceServices(BaseServices):
@@ -128,6 +135,32 @@ class InvoiceServices(BaseServices):
                 unit_price=unit_price,
                 amount=amount
             )
+
+        for student_guardian in invoice.student.student_guardians.filter(
+                Q(is_primary=True) | Q(can_receive_reports=True), is_active=True):
+            guardian = student_guardian.guardian
+            notification_context = {
+                "recipient_name": guardian.full_name,
+                "student_full_name": invoice.student.full_name,
+                "student_reg_number": invoice.student.reg_number,
+                "invoice_reference": invoice.invoice_reference,
+                "total_amount": f"{invoice.total_amount:,.2f}",
+                "paid_amount": f"{invoice.paid_amount:,.2f}",
+                "balance": f"{invoice.balance:,.2f}",
+                "due_date": invoice.due_date,
+                "invoice_status": invoice.status.upper(),
+                "invoice_notes": invoice.notes,
+                "current_year": timezone.now().year,
+            }
+            try:
+                NotificationServices.send_notification(
+                    recipients=[guardian.guardian_profile.email],
+                    notification_type=NotificationType.EMAIL,
+                    template_name='email_new_invoice',
+                    context=notification_context,
+                )
+            except Exception as ex:
+                logger.exception(f'Send new invoice notification error: {ex}')
 
         return invoice
 
@@ -305,7 +338,7 @@ class InvoiceServices(BaseServices):
             'updated_by_full_name': invoice.updated_by.full_name if invoice.updated_by else None,
             'notes': invoice.notes,
             'is_auto_generated': invoice.is_auto_generated,
-            'status': invoice.status,
+            'status': invoice.computed_status,
             'created_at': invoice.created_at,
             'updated_at': invoice.updated_at,
             'invoice_items': invoice_items,

@@ -332,7 +332,7 @@ class MpesaTransactionAdmin(admin.ModelAdmin):
 
 @admin.register(ExpenseCategory)
 class ExpenseCategoryAdmin(admin.ModelAdmin):
-    list_display = ('get_full_path', 'has_budget', 'monthly_budget', 'annual_budget', 'requires_approval', 'is_active')
+    list_display = ('name', 'has_budget', 'monthly_budget', 'annual_budget', 'requires_approval', 'is_active')
     list_filter = ('has_budget', 'requires_approval', 'is_active')
     search_fields = ('name',)
     readonly_fields = AUDIT_READONLY_FIELDS
@@ -340,8 +340,8 @@ class ExpenseCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Vendor)
 class VendorAdmin(admin.ModelAdmin):
-    list_display = ('name', 'contact_person', 'phone', 'email', 'payment_terms', 'is_active')
-    list_filter = ('payment_terms', 'is_active')
+    list_display = ('name', 'school', 'contact_person', 'phone', 'email', 'payment_terms', 'is_active')
+    list_filter = ('school', 'payment_terms', 'is_active')
     search_fields = ('name', 'phone', 'email', 'kra_pin')
     readonly_fields = AUDIT_READONLY_FIELDS
 

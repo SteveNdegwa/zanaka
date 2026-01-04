@@ -253,32 +253,32 @@ class Invoice(BaseModel):
         return f'INV-{today_str}-{new_seq:04d}'
 
     @property
-    def total_amount(self) -> float:
-        return float(
+    def total_amount(self) -> Decimal:
+        return Decimal(
             self.items.filter(
                 is_active=True
             ).aggregate(
                 total=Sum('amount')
-             )['total'] or 0
+             )['total'] or '0.00'
         )
 
     total_amount.fget.short_description = _('Total Amount')
 
     @property
-    def paid_amount(self) -> float:
+    def paid_amount(self) -> Decimal:
         allocations = self.payment_allocations.filter(is_active=True)
         total_allocated = allocations.aggregate(total=Sum('allocated_amount'))['total'] or 0
 
         payments = Payment.objects.filter(allocations__in=allocations).distinct()
         refunded = sum(p.completed_refunded_amount for p in payments)
 
-        return float(total_allocated - refunded)
+        return Decimal(total_allocated - refunded)
 
     paid_amount.fget.short_description = _('Paid Amount')
 
     @property
-    def balance(self) -> float:
-        return float(self.total_amount - self.paid_amount)
+    def balance(self) -> Decimal:
+        return Decimal(self.total_amount - self.paid_amount)
 
     balance.fget.short_description = _('Balance')
 
@@ -892,16 +892,8 @@ class PaymentAllocation(BaseModel):
 
 
 class ExpenseCategory(GenericBaseModel):
-    name = models.CharField(max_length=100, unique=True, verbose_name=_('Category Name'))
-    parent = models.ForeignKey(
-        'self',
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name='subcategories',
-        verbose_name=_('Parent Category')
-    )
-
+    school = models.ForeignKey(School, null=True, on_delete=models.CASCADE, verbose_name=_('School'))
+    name = models.CharField(max_length=100, verbose_name=_('Category Name'))
     has_budget = models.BooleanField(default=False, verbose_name=_('Has Budget'))
     monthly_budget = models.DecimalField(
         max_digits=12,
@@ -928,31 +920,22 @@ class ExpenseCategory(GenericBaseModel):
         ordering = ['name']
 
     def __str__(self) -> str:
-        return f'{self.parent.name} > {self.name}' if self.parent else self.name
+        return self.name
 
-    def get_full_path(self) -> str:
-        path = [self.name]
-        parent = self.parent
-        while parent:
-            path.insert(0, parent.name)
-            parent = parent.parent
-        return ' > '.join(path)
-
-    def get_total_spent(self, start_date=None, end_date=None) -> float:
-        expenses = self.expenses.filter(status='APPROVED')
+    def get_total_spent(self, start_date=None, end_date=None) -> Decimal:
+        expenses = self.expenses.filter(status=ExpenseStatus.PAID)
         if start_date:
             expenses = expenses.filter(expense_date__gte=start_date)
         if end_date:
             expenses = expenses.filter(expense_date__lte=end_date)
 
         total = expenses.aggregate(Sum('amount'))['amount__sum'] or Decimal('0.00')
-        for subcategory in self.subcategories.all():
-            total += subcategory.get_total_spent(start_date, end_date)
-        return float(total)
+        return Decimal(total)
 
 
-class Vendor(GenericBaseModel):
+class Vendor(BaseModel):
     name = models.CharField(max_length=100, unique=True, verbose_name=_('Vendor Name'))
+    school = models.ForeignKey(School, null=True, on_delete=models.CASCADE, verbose_name=_('School'))
     contact_person = models.CharField(max_length=100, blank=True, verbose_name=_('Contact Person'))
     email = models.EmailField(blank=True, verbose_name=_('Email Address'))
     phone = models.CharField(max_length=20, blank=True, verbose_name=_('Phone Number'))
@@ -1002,15 +985,16 @@ class Vendor(GenericBaseModel):
     def __str__(self) -> str:
         return self.name
 
-    def get_total_paid(self, year=None) -> float:
+    def get_total_paid(self, year=None) -> Decimal:
         expenses = self.expenses.filter(status='APPROVED')
         if year:
             expenses = expenses.filter(expense_date__year=year)
-        return float(expenses.aggregate(Sum('amount'))['amount__sum'] or 0)
+        return Decimal(expenses.aggregate(Sum('amount'))['amount__sum'] or 0)
 
 
 class Department(GenericBaseModel):
-    name = models.CharField(max_length=100, unique=True, verbose_name=_('Department Name'))
+    name = models.CharField(max_length=100, verbose_name=_('Department Name'))
+    school = models.ForeignKey(School, null=True, on_delete=models.CASCADE, verbose_name=_('School'))
     head = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -1035,18 +1019,18 @@ class Department(GenericBaseModel):
     def __str__(self) -> str:
         return self.name
 
-    def get_total_expenses(self, start_date=None, end_date=None) -> float:
+    def get_total_expenses(self, start_date=None, end_date=None) -> Decimal:
         expenses = self.expenses.filter(status='APPROVED')
         if start_date:
             expenses = expenses.filter(expense_date__gte=start_date)
         if end_date:
             expenses = expenses.filter(expense_date__lte=end_date)
-        return float(expenses.aggregate(Sum('amount'))['amount__sum'] or 0)
+        return Decimal(expenses.aggregate(Sum('amount'))['amount__sum'] or 0)
 
     def get_budget_utilization(self) -> int:
         if self.budget_allocated > 0:
             spent = self.get_total_expenses(start_date=timezone.now().replace(month=1, day=1).date())
-            return round((spent / float(self.budget_allocated)) * 100)
+            return round((spent / Decimal(self.budget_allocated)) * 100)
         return 0
 
 
@@ -1057,7 +1041,20 @@ class Expense(GenericBaseModel):
         db_index=True,
         verbose_name=_('Expense Reference')
     )
-
+    school = models.ForeignKey(
+        School,
+        null=True,
+        on_delete=models.PROTECT,
+        related_name='expenses',
+        verbose_name=_('School')
+    )
+    branches = models.ManyToManyField(
+        Branch,
+        blank=True,
+        related_name='expenses',
+        verbose_name=_('Branches'),
+        help_text=_('Leave blank for school-level expense (applies to all branches)')
+    )
     category = models.ForeignKey(
         ExpenseCategory,
         on_delete=models.PROTECT,
@@ -1199,15 +1196,20 @@ class Expense(GenericBaseModel):
 
     @staticmethod
     def generate_expense_reference() -> str:
-        prefix = timezone.now().strftime('EXP%Y%m')
-        count = Expense.objects.filter(
-            expense_reference__startswith=prefix
-        ).count() + 1
-        return f'{prefix}{count:05d}'
+        today_str = timezone.now().strftime('%Y%m%d')
+        last_expense = Expense.objects.filter(
+            expense_reference__startswith=f'EXP-{today_str}'
+        ).order_by('created_at').last()
+        if last_expense:
+            last_seq = int(last_expense.expense_reference.split('-')[-1])
+            new_seq = last_seq + 1
+        else:
+            new_seq = 1
+        return f'EXP-{today_str}-{new_seq:04d}'
 
     @property
-    def total_amount(self) -> float:
-        return float(self.amount + self.tax_amount)
+    def total_amount(self) -> Decimal:
+        return Decimal(self.amount + self.tax_amount if self.tax_amount else self.amount)
 
     def can_edit(self, user) -> bool:
         if self.status in [ExpenseStatus.PAID, ExpenseStatus.CANCELLED]:
@@ -1241,6 +1243,8 @@ class ExpenseAttachment(GenericBaseModel):
 
     uploaded_by = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name=_('Uploaded By'))
 
+    is_active = models.BooleanField(default=True, verbose_name=_('Is Active'))
+
     class Meta:
         ordering = ['-created_at']
         verbose_name = _('Expense Attachment')
@@ -1258,6 +1262,7 @@ class ExpenseAttachment(GenericBaseModel):
 
 
 class PettyCash(BaseModel):
+    school = models.ForeignKey(School, null=True, on_delete=models.CASCADE, verbose_name=_('School'))
     fund_name = models.CharField(max_length=100, verbose_name=_('Fund Name'))
     custodian = models.ForeignKey(
         User,
@@ -1292,14 +1297,36 @@ class PettyCash(BaseModel):
         return f'{self.fund_name} - KES {self.current_balance}'
 
     def replenish(self, amount, replenished_by, notes='') -> None:
+        last_transaction = PettyCashTransaction.objects.filter(petty_cash_fund=self).order_by('-created_at').first()
+        balance_before = last_transaction.balance_after if last_transaction else self.current_balance
+        balance_after = Decimal(balance_before + Decimal(amount))
         PettyCashTransaction.objects.create(
             petty_cash_fund=self,
-            transaction_type='REPLENISHMENT',
+            transaction_type=PettyCashTransactionType.REPLENISHMENT,
             amount=amount,
+            balance_before=balance_before,
+            balance_after=balance_after,
             processed_by=replenished_by,
             notes=notes
         )
         self.current_balance += amount
+        self.save()
+
+    def disburse(self, expense, disbursed_by, notes='') -> None:
+        last_transaction = PettyCashTransaction.objects.filter(petty_cash_fund=self).order_by('-created_at').first()
+        balance_before = last_transaction.balance_after if last_transaction else self.current_balance
+        balance_after = Decimal(balance_before - Decimal(expense.amount))
+        PettyCashTransaction.objects.create(
+            petty_cash_fund=self,
+            transaction_type=PettyCashTransactionType.DISBURSEMENT,
+            amount=expense.amount,
+            balance_before=balance_before,
+            balance_after=balance_after,
+            processed_by=disbursed_by,
+            description=f'Payment for {expense.expense_reference} - {expense.name}',
+            notes=notes
+        )
+        self.current_balance -= expense.amount
         self.save()
 
 
@@ -1400,7 +1427,7 @@ class ExpenseBudget(BaseModel):
         dept = f' - {self.department.name}' if self.department else ''
         return f'{self.fiscal_year} - {self.category.name}{dept}'
 
-    def get_spent_amount(self) -> float:
+    def get_spent_amount(self) -> Decimal:
         expenses = Expense.objects.filter(
             category=self.category,
             status=ExpenseStatus.APPROVED,
@@ -1409,15 +1436,15 @@ class ExpenseBudget(BaseModel):
         )
         if self.department:
             expenses = expenses.filter(department=self.department)
-        return float(expenses.aggregate(Sum('amount'))['amount__sum'] or 0)
+        return Decimal(expenses.aggregate(Sum('amount'))['amount__sum'] or 0)
 
-    def get_utilization_percentage(self) -> float:
+    def get_utilization_percentage(self) -> Decimal:
         spent = self.get_spent_amount()
-        percentage = (spent / float(self.budget_amount) * 100) if self.budget_amount > 0 else 0
-        return float(round(percentage, 2))
+        percentage = (spent / Decimal(self.budget_amount) * 100) if self.budget_amount > 0 else 0
+        return Decimal(round(percentage, 2))
 
-    def get_remaining_budget(self) -> float:
-        return float(self.budget_amount - self.get_spent_amount())
+    def get_remaining_budget(self) -> Decimal:
+        return Decimal(self.budget_amount - self.get_spent_amount())
 
 
 class BalanceSheet(BaseModel):

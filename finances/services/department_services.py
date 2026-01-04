@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count, Sum, Q
 from django.utils import timezone
@@ -30,7 +31,7 @@ class DepartmentServices(BaseServices):
         qs = Department.objects
         if select_for_update:
             qs = qs.select_for_update()
-        return qs.get(id=department_id)
+        return qs.get(id=department_id, is_active=True)
 
     @classmethod
     @transaction.atomic
@@ -54,6 +55,9 @@ class DepartmentServices(BaseServices):
             field_types=field_types
         )
 
+        if Department.objects.filter(name=data['name'], school=user.school, is_active=True).exists():
+            raise ValidationError(f"Department with name '{data['name']}' already exists")
+
         head = None
         if data.get('head_id'):
             head = User.objects.get(id=data['head_id'])
@@ -64,9 +68,9 @@ class DepartmentServices(BaseServices):
 
         department = Department.objects.create(
             name=data['name'],
+            school=user.school,
             head=head,
-            budget_allocated=budget_allocated,
-            created_by=user
+            budget_allocated=budget_allocated
         )
 
         return department
@@ -91,9 +95,18 @@ class DepartmentServices(BaseServices):
         field_types = {'budget_allocated': float}
         data = cls._sanitize_and_validate_data(data, field_types=field_types)
 
-        update_fields = ['updated_by']
+        update_fields = []
 
         if 'name' in data:
+            if Department.objects.filter(
+                    name=data['name'],
+                    school=user.school,
+                    is_active=True
+            ).exclude(
+                id=department_id
+            ).exists():
+                raise ValidationError(f"Department with name '{data['name']}' already exists")
+
             department.name = data['name']
             update_fields.append('name')
 
@@ -105,7 +118,6 @@ class DepartmentServices(BaseServices):
             department.budget_allocated = Decimal(str(data['budget_allocated']))
             update_fields.append('budget_allocated')
 
-        department.updated_by = user
         department.save(update_fields=update_fields)
 
         return department
@@ -125,8 +137,7 @@ class DepartmentServices(BaseServices):
         """
         department = cls.get_department(department_id, select_for_update=True)
         department.is_active = False
-        department.updated_by = user
-        department.save(update_fields=['is_active', 'updated_by'])
+        department.save(update_fields=['is_active'])
         return department
 
     @classmethod
@@ -144,8 +155,7 @@ class DepartmentServices(BaseServices):
         """
         department = cls.get_department(department_id, select_for_update=True)
         department.is_active = True
-        department.updated_by = user
-        department.save(update_fields=['is_active', 'updated_by'])
+        department.save(update_fields=['is_active'])
         return department
 
     @classmethod
@@ -195,7 +205,7 @@ class DepartmentServices(BaseServices):
         department_field_names = {f.name for f in Department._meta.get_fields()}
         cleaned_filters = {k: v for k, v in filters.items() if k in department_field_names}
 
-        qs = Department.objects.filter(**cleaned_filters).order_by('name')
+        qs = Department.objects.filter(is_active=True, **cleaned_filters).order_by('name')
 
         search_term = filters.get('search_term')
         if search_term:

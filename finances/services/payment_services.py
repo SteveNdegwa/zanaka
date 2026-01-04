@@ -1,3 +1,5 @@
+import logging
+
 from decimal import Decimal
 from typing import Optional
 
@@ -15,10 +17,14 @@ from finances.models import (
     Refund,
     PaymentStatus,
     PaymentMethod,
-    InvoiceItem, RefundStatus
+    InvoiceItem, RefundStatus, Invoice, InvoiceStatus
 )
+from notifications.models import NotificationType
+from notifications.services.notification_services import NotificationServices
 from users.models import User, RoleName
 from users.services.user_services import UserServices
+
+logger = logging.getLogger(__name__)
 
 
 class PaymentServices(BaseServices):
@@ -39,6 +45,7 @@ class PaymentServices(BaseServices):
         status: Optional[str] = None,
         select_for_update: bool = False
     ) -> Payment:
+        print(payment_id)
         filters = Q(id=payment_id)
         if status:
             filters &= Q(status=status.upper())
@@ -47,10 +54,13 @@ class PaymentServices(BaseServices):
         if select_for_update:
             qs = qs.select_for_update()
 
+        print(filters)
+
         return qs.get(filters)
 
     @classmethod
     def create_payment(cls, created_by: User, student_id: str, **data) -> Payment:
+        print(data)
         student = UserServices.get_user(
             user_id=student_id,
             role_name=RoleName.STUDENT
@@ -95,6 +105,31 @@ class PaymentServices(BaseServices):
             notes=notes
         )
 
+        for student_guardian in student.student_guardians.filter(
+                Q(is_primary=True) | Q(can_receive_reports=True), is_active=True):
+            guardian = student_guardian.guardian
+            notification_context = {
+                "recipient_name": guardian.full_name,
+                "student_full_name": student.full_name,
+                "student_reg_number": student.reg_number,
+                "payment_reference": payment.payment_reference,
+                "payment_method": payment.payment_method.title(),
+                "amount": f"{payment.amount:,.2f}",
+                "payment_date": str(payment.created_at.date()),
+                "payment_status": payment.status.title(),
+                "payment_action": "approved" if payment.verified_at else "recorded",
+                "current_year": timezone.now().year,
+            }
+            try:
+                NotificationServices.send_notification(
+                    recipients=[guardian.guardian_profile.email],
+                    notification_type=NotificationType.EMAIL,
+                    template_name='email_new_payment',
+                    context=notification_context,
+                )
+            except Exception as ex:
+                logger.exception(f'Send new payment notification error: {ex}')
+
         return payment
 
     @classmethod
@@ -135,6 +170,32 @@ class PaymentServices(BaseServices):
             payment.verified_by = approved_by
             payment.verified_at = timezone.now()
             payment.save(update_fields=['status', 'verified_by', 'verified_at'])
+
+        for student_guardian in payment.student.student_guardians.filter(
+                Q(is_primary=True) | Q(can_receive_reports=True), is_active=True):
+            guardian = student_guardian.guardian
+            notification_context = {
+                "recipient_name": guardian.full_name,
+                "student_full_name": payment.student.full_name,
+                "student_reg_number": payment.student.reg_number,
+                "payment_reference": payment.payment_reference,
+                "payment_method": payment.payment_method.title(),
+                "amount": f"{payment.amount:,.2f}",
+                "payment_date": str(payment.created_at.date()),
+                "payment_status": payment.status.title(),
+                "payment_action": "approved" if payment.verified_at else "recorded",
+                "current_year": timezone.now().year,
+            }
+            try:
+                NotificationServices.send_notification(
+                    recipients=[guardian.guardian_profile.email],
+                    notification_type=NotificationType.EMAIL,
+                    template_name='email_new_payment',
+                    context=notification_context,
+                )
+            except Exception as ex:
+                logger.exception(f'Send new payment notification error: {ex}')
+
 
         return payment
 
@@ -320,3 +381,108 @@ class PaymentServices(BaseServices):
 
         payment_ids = qs.values_list('id', flat=True)
         return [cls.fetch_payment(str(pid)) for pid in payment_ids]
+
+    @classmethod
+    @transaction.atomic
+    def allocate_payments(cls, student_id: str) -> None:
+        student = UserServices.get_user(user_id=student_id, role_name=RoleName.STUDENT)
+
+        # Fetch allocatable payments
+        payments = (
+            Payment.objects
+            .select_for_update()
+            .filter(
+                student=student,
+                status=PaymentStatus.COMPLETED,
+                unassigned_amount__gt=0
+            )
+            .order_by('created_at')
+        )
+
+        if not payments.exists():
+            return
+
+        # Fetch allocatable invoices
+        invoices = (
+            Invoice.objects
+            .select_for_update()
+            .filter(
+                ~Q( status__in=[InvoiceStatus.DRAFT, InvoiceStatus.CANCELLED]),
+                student=student,
+                balance__gt=0
+            )
+            .order_by('priority', 'due_date', 'created_at')
+        )
+
+        if not invoices.exists():
+            return
+
+        invoice_map = {inv.id: inv for inv in invoices}
+
+        for payment in payments:
+            remaining_payment_amount = Decimal(payment.unassigned_amount)
+
+            if remaining_payment_amount <= 0:
+                continue
+
+            # ---- Step 1: Allocate to priority invoice first ----
+            if payment.priority_invoice_id:
+                priority_invoice = invoice_map.get(payment.priority_invoice_id)
+
+                if (
+                        priority_invoice
+                        and priority_invoice.status in [InvoiceStatus.PENDING, InvoiceStatus.PARTIAL]
+                        and priority_invoice.balance > 0
+                ):
+                    allocation_amount = min(
+                        remaining_payment_amount,
+                        Decimal(priority_invoice.balance)
+                    )
+
+                    PaymentAllocation.objects.create(
+                        payment=payment,
+                        invoice=priority_invoice,
+                        allocated_amount=allocation_amount
+                    )
+
+                    remaining_payment_amount -= allocation_amount
+                    priority_invoice.refresh_from_db()
+                    cls._update_invoice_status(priority_invoice)
+
+            # ---- Step 2: Allocate any remaining amount to other invoices ----
+            for invoice in invoices:
+                if remaining_payment_amount <= 0:
+                    break
+
+                # Skip priority invoice if already handled
+                if payment.priority_invoice_id and invoice.id == payment.priority_invoice_id:
+                    continue
+
+                if invoice.balance <= 0:
+                    continue
+
+                allocation_amount = min(
+                    remaining_payment_amount,
+                    Decimal(invoice.balance)
+                )
+
+                PaymentAllocation.objects.create(
+                    payment=payment,
+                    invoice=invoice,
+                    allocated_amount=allocation_amount
+                )
+
+                remaining_payment_amount -= allocation_amount
+                invoice.refresh_from_db()
+                cls._update_invoice_status(invoice)
+
+    @staticmethod
+    def _update_invoice_status(invoice: Invoice) -> None:
+        if invoice.balance <= 0:
+            invoice.status = InvoiceStatus.PAID
+        elif invoice.paid_amount > 0:
+            invoice.status = InvoiceStatus.PARTIALLY_PAID
+        else:
+            invoice.status = InvoiceStatus.PENDING
+
+        invoice.save(update_fields=['status'])

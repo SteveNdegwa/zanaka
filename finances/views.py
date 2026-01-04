@@ -2,8 +2,10 @@ from django.http import JsonResponse
 
 from finances.services.department_services import DepartmentServices
 from finances.services.expense_budget_services import ExpenseBudgetServices
+from finances.services.expense_category_services import ExpenseCategoryServices
 from finances.services.expense_services import ExpenseServices
 from finances.services.fee_item_services import FeeItemServices
+from finances.services.homepage_services import HomepageServices
 from finances.services.invoice_services import InvoiceServices
 from finances.services.payment_services import PaymentServices
 from finances.services.petty_cash_services import PettyCashServices
@@ -303,12 +305,9 @@ def reject_expense(request: ExtendedRequest, expense_id) -> JsonResponse:
 
 @user_login_required(required_permission='finances.pay_expense')
 def mark_expense_as_paid(request: ExtendedRequest, expense_id) -> JsonResponse:
-    payment_method = request.data.get('payment_method')
-
     ExpenseServices.mark_as_paid(
         user=request.user,
         expense_id=expense_id,
-        payment_method=payment_method,
         **request.data
     )
 
@@ -392,6 +391,70 @@ def remove_expense_attachment(request: ExtendedRequest, attachment_id) -> JsonRe
     )
 
 
+@user_login_required(required_permission='finances.create_expense_category')
+def create_expense_category(request: ExtendedRequest) -> JsonResponse:
+    category = ExpenseCategoryServices.create_category(
+        user=request.user,
+        **request.data
+    )
+    return ResponseProvider.created(
+        message='Expense category created successfully',
+        data={'id': str(category.id)}
+    )
+
+
+@user_login_required(required_permission='finances.update_expense_category')
+def update_expense_category(request: ExtendedRequest, category_id: str) -> JsonResponse:
+    ExpenseCategoryServices.update_category(
+        user=request.user,
+        category_id=category_id,
+        **request.data
+    )
+    return ResponseProvider.success(
+        message='Expense category updated successfully'
+    )
+
+
+@user_login_required(required_permission='finances.deactivate_expense_category')
+def deactivate_expense_category(request: ExtendedRequest, category_id: str) -> JsonResponse:
+    ExpenseCategoryServices.deactivate_category(
+        user=request.user,
+        category_id=category_id
+    )
+    return ResponseProvider.success(
+        message='Expense category deactivated successfully'
+    )
+
+
+@user_login_required(required_permission='finances.activate_expense_category')
+def activate_expense_category(request: ExtendedRequest, category_id: str) -> JsonResponse:
+    ExpenseCategoryServices.activate_category(
+        user=request.user,
+        category_id=category_id
+    )
+    return ResponseProvider.success(
+        message='Expense category activated successfully'
+    )
+
+
+@user_login_required(required_permission='finances.view_expense_category')
+def view_expense_category(request: ExtendedRequest, category_id: str) -> JsonResponse:
+    category = ExpenseCategoryServices.fetch_category(category_id)
+    return ResponseProvider.success(
+        message='Expense category fetched successfully',
+        data=category
+    )
+
+
+@user_login_required(required_permission='finances.list_expense_categories')
+def list_expense_categories(request: ExtendedRequest) -> JsonResponse:
+    categories = ExpenseCategoryServices.filter_categories(school=request.user.school, **request.data)
+    return ResponseProvider.success(
+        message='Expense categories fetched successfully',
+        data=categories
+    )
+
+
 @user_login_required(required_permission='finances.create_vendor')
 def create_vendor(request: ExtendedRequest) -> JsonResponse:
     vendor = VendorServices.create_vendor(
@@ -454,7 +517,7 @@ def view_vendor(request: ExtendedRequest, vendor_id) -> JsonResponse:
 
 @user_login_required(required_permission='finances.list_vendors')
 def list_vendors(request: ExtendedRequest) -> JsonResponse:
-    vendors = VendorServices.filter_vendors(**request.data)
+    vendors = VendorServices.filter_vendors(school=request.user.school, **request.data)
 
     return ResponseProvider.success(
         message='Vendors fetched successfully',
@@ -528,7 +591,7 @@ def view_petty_cash_fund(request: ExtendedRequest, fund_id) -> JsonResponse:
 
 @user_login_required(required_permission='finances.list_petty_cash_funds')
 def list_petty_cash_funds(request: ExtendedRequest) -> JsonResponse:
-    funds = PettyCashServices.filter_petty_cash_funds(**request.data)
+    funds = PettyCashServices.filter_petty_cash_funds(school=request.user.school, **request.data)
 
     return ResponseProvider.success(
         message='Petty cash funds fetched successfully',
@@ -611,7 +674,7 @@ def view_department(request: ExtendedRequest, department_id) -> JsonResponse:
 
 @user_login_required(required_permission='finances.list_departments')
 def list_departments(request: ExtendedRequest) -> JsonResponse:
-    departments = DepartmentServices.filter_departments(**request.data)
+    departments = DepartmentServices.filter_departments(school=request.user.school, **request.data)
 
     return ResponseProvider.success(
         message='Departments fetched successfully',
@@ -807,4 +870,25 @@ def delete_grade_level_fee(request: ExtendedRequest, grade_level_fee_id: str) ->
 
     return ResponseProvider.success(
         message='Grade-level fee deleted successfully'
+    )
+
+
+@user_login_required(required_permission='homepage.view_homepage_statistics')
+def get_homepage_statistics(request: ExtendedRequest) -> JsonResponse:
+    branch_id = request.data.get('branch_id')
+    period = request.data.get('period')
+    start_date = request.data.get('start_date')
+    end_date = request.data.get('end_date')
+
+    statistics = HomepageServices.get_homepage_statistics(
+        user=request.user,
+        branch_id=branch_id,
+        period=period,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+    return ResponseProvider.created(
+        message='Homepage statistics fetched successfully',
+        data=statistics
     )

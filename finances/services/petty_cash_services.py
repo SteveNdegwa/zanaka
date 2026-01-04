@@ -2,10 +2,12 @@ from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Q, F
+from django.db.models import Q, F, Value, CharField
+from django.db.models.functions import Coalesce, Concat
 
 from base.services.base_services import BaseServices
 from finances.models import PettyCash, PettyCashStatus, PettyCashTransaction
+from schools.models import School
 from users.models import User
 
 
@@ -54,15 +56,19 @@ class PettyCashServices(BaseServices):
             field_types=field_types
         )
 
+        fund_name = data['fund_name']
+        if PettyCash.objects.filter(school=user.school, fund_name=data['fund_name']).exists():
+            raise ValidationError(f"Fund with name '{fund_name}' already exists")
+
         custodian = User.objects.get(id=data['custodian_id'])
         initial_amount = Decimal(str(data['initial_amount']))
 
         fund = PettyCash.objects.create(
+            school=user.school,
             fund_name=data['fund_name'],
             custodian=custodian,
             initial_amount=initial_amount,
             current_balance=initial_amount,
-            created_by=user
         )
 
         return fund
@@ -109,8 +115,7 @@ class PettyCashServices(BaseServices):
         """
         fund = cls.get_petty_cash_fund(fund_id, select_for_update=True)
         fund.status = PettyCashStatus.CLOSED
-        fund.updated_by = user
-        fund.save(update_fields=['status', 'updated_by'])
+        fund.save(update_fields=['status'])
         return fund
 
     @classmethod
@@ -132,8 +137,7 @@ class PettyCashServices(BaseServices):
             raise ValidationError('Only closed funds can be reopened')
 
         fund.status = PettyCashStatus.ACTIVE
-        fund.updated_by = user
-        fund.save(update_fields=['status', 'updated_by'])
+        fund.save(update_fields=['status'])
         return fund
 
     @classmethod
@@ -151,10 +155,24 @@ class PettyCashServices(BaseServices):
         recent_transactions = list(
             PettyCashTransaction.objects
             .filter(petty_cash_fund=fund)
-            .order_by("""-created_at""")[:10]
+            .order_by('-created_at')
+            .annotate(
+                processed_by_full_name=Coalesce(
+                    Concat(
+                        F('processed_by__first_name'),
+                        Value(' '),
+                        F('processed_by__last_name'),
+                        Value(' '),
+                        F('processed_by__other_name'),
+                        output_field=CharField()
+                    ),
+                    Value('—'),
+                    output_field=CharField()
+                )
+            )
             .values(
-                'id', 'description', 'transaction_type', 'amount',
-                'balance_before', 'balance_after', 'processed_by_id',
+                'id', 'description', 'transaction_type', 'amount', 'balance_before',
+                'balance_after', 'processed_by_id', 'processed_by_full_name',
                 'expense_id', 'notes', 'created_at'
             )
         )
@@ -173,7 +191,7 @@ class PettyCashServices(BaseServices):
         }
 
     @classmethod
-    def filter_petty_cash_funds(cls, **filters) -> list[dict]:
+    def filter_petty_cash_funds(cls, school: School, **filters) -> list[dict]:
         """
         Filter petty cash funds based on fields and search term.
 
@@ -187,7 +205,7 @@ class PettyCashServices(BaseServices):
         fund_field_names = {f.name for f in PettyCash._meta.get_fields()}
         cleaned_filters = {k: v for k, v in filters.items() if k in fund_field_names}
 
-        qs = PettyCash.objects.filter(**cleaned_filters).order_by('-created_at')
+        qs = PettyCash.objects.filter(school=school, **cleaned_filters).order_by('-created_at')
 
         search_term = filters.get('search_term')
         if search_term:
