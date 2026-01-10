@@ -76,7 +76,7 @@ class BaseServices:
         if required_fields:
             missing = [f for f in required_fields if not cleaned.get(f)]
             if missing:
-                raise ValidationError(f'Missing required fields: {', '.join(missing)}')
+                raise ValidationError(f"Missing required fields: {', '.join(missing)}")
 
         # Resolve foreign keys
         if resolve_foreign_keys:
@@ -121,7 +121,7 @@ class BaseServices:
                     try:
                         resolved[attr] = model.objects.get(name=value, is_active=True)
                     except ObjectDoesNotExist:
-                        raise ValidationError(f'{attr} with name="{value}" does not exist or is inactive.')
+                        raise ValidationError(f'{attr} with name={value} does not exist or is inactive.')
             else:
                 resolved[field] = value
 
