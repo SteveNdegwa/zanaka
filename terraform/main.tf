@@ -1,17 +1,3 @@
-variable "vps_host" {}
-variable "ssh_user" {
-  default = "root"
-}
-variable "ssh_private_key" {}
-variable "docker_image_tag" {}
-variable "db_password" {}
-variable "django_secret" {}
-variable "rabbitmq_password" {}
-variable "base_domain" {
-  description = "Main domain for all subdomains"
-  default     = "stmarysacademy.ac.ke"
-}
-
 resource "null_resource" "zanaka_server" {
   connection {
     type        = "ssh"

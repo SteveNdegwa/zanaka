@@ -11,7 +11,7 @@ volumes:
   rabbitmq_data:
   portainer_data:
   grafana_data:
-  staticfiles:
+  static:
 
 services:
   postgres:
@@ -68,7 +68,7 @@ services:
       rabbitmq:
         condition: service_healthy
     volumes:
-      - ./staticfiles:/usr/src/app/staticfiles
+      - ./static:/usr/src/app/staticfiles
     expose:
       - "8000"
     networks:
