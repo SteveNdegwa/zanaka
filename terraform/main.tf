@@ -53,7 +53,7 @@ resource "null_resource" "zanaka_server" {
       RABBITMQ_PORT=5672
       RABBITMQ_VHOST=/
       DOCKER_IMAGE_TAG=${var.docker_image_tag}
-      CELERY_BROKER_URL=amqp://${var.rabbitmq_user}:${var.rabbitmq_password}@rabbitmq:5672//
+      CELERY_BROKER_URL=amqp://guest:${var.rabbitmq_password}@rabbitmq:5672//
       EOF
       EOT
       ,
