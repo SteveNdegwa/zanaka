@@ -17,7 +17,7 @@ class BelioSMSProvider(BaseProvider):
         required_keys = ['api_key', 'cookie', 'url', 'default_sms_service_id', 'callback_url']
         missing_keys = [key for key in required_keys if key not in self.config]
         if missing_keys:
-            logger.error(f'BelioSMSProvider - Missing config keys: {', '.join(missing_keys)}')
+            logger.error(f"BelioSMSProvider - Missing config keys: {', '.join(missing_keys)}")
             return False
         return True
 
