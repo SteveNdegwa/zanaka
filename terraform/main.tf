@@ -8,7 +8,7 @@ resource "null_resource" "zanaka_server" {
 
   # Copy the docker-compose.yml from local repo to server
   provisioner "file" {
-    source      = "docker-compose.yml"
+    source      = "${path.module}/../docker-compose.yml"
     destination = "/opt/zanaka/docker-compose.yml"
   }
 
