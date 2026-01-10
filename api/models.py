@@ -199,7 +199,7 @@ class APICallback(BaseModel):
         unique_together = ['client', 'path']
 
     def __str__(self) -> str:
-        return f'{self.client.name} → {self.path} ({'Active' if self.is_active else 'Inactive'})'
+        return f"{self.client.name} → {self.path} ({'Active' if self.is_active else 'Inactive'})"
 
 
 class RateLimitRule(BaseModel):
