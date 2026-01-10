@@ -10,8 +10,8 @@ resource "null_resource" "zanaka_server" {
   provisioner "remote-exec" {
     inline = [
       "echo 'Step 0: Ensure /opt/zanaka exists and set ownership'",
-      "sudo mkdir -p /opt/zanaka",
-      "sudo chown ${var.ssh_user}:${var.ssh_user} /opt/zanaka"
+      "mkdir -p /opt/zanaka",
+      # "sudo chown ${var.ssh_user}:${var.ssh_user} /opt/zanaka"
     ]
   }
 
