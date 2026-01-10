@@ -27,8 +27,6 @@ class HomepageServices:
     ):
         school = user.school
 
-        print(branch_id, period, start_date, end_date)
-
         # Determine date range
         if start_date and end_date:
             try:
@@ -242,6 +240,6 @@ class HomepageServices:
         change = ((current - previous) / previous) * 100
         return {
             'change': round(change, 1),
-            'message': f'{'Up' if change > 0 else 'Down'} {abs(round(change, 1))}% vs previous period',
+            'message': f"{'Up' if change > 0 else 'Down'} {abs(round(change, 1))}% vs previous period",
             'is_positive': change > 0,
         }
