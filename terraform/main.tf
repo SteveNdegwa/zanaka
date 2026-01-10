@@ -22,7 +22,10 @@ resource "null_resource" "zanaka_server" {
 
   provisioner "remote-exec" {
     inline = [
+      "set -x",
+
       # --- System update & essentials ---
+      "echo 'Step 1: Update system and install essentials'",
       "apt-get update -y",
       "apt-get install -y docker.io git curl nginx software-properties-common",
       "systemctl enable docker",
@@ -31,6 +34,7 @@ resource "null_resource" "zanaka_server" {
       "systemctl start nginx",
 
       # --- Install Docker Compose v2 ---
+      "echo 'Step 2: Install Docker Compose v2'",
       <<-EOT
       DOCKER_COMPOSE_VERSION=2.21.0
       if ! command -v docker-compose >/dev/null || [ $(docker-compose version --short) != $DOCKER_COMPOSE_VERSION ]; then
@@ -41,10 +45,12 @@ resource "null_resource" "zanaka_server" {
       ,
 
       # --- Create project directories ---
+      "echo 'Step 3: Create project directories'",
       "mkdir -p /opt/zanaka/static",
       "cd /opt/zanaka",
 
       # --- Generate .env from Terraform variables ---
+       "echo 'Step 4: Generate .env file'",
       <<-EOT
       cat > .env <<EOF
       DJANGO_SECRET_KEY=${var.django_secret}
@@ -67,6 +73,7 @@ resource "null_resource" "zanaka_server" {
       ,
 
       # --- Start Docker stack ---
+      "echo 'Step 5: Pull and start Docker stack'",
       "docker-compose pull",
       "docker-compose up -d",
       "docker-compose exec -T zanaka python manage.py collectstatic --noinput",
@@ -134,11 +141,13 @@ resource "null_resource" "zanaka_server" {
       ,
 
       # Enable site & reload Nginx
+      "echo 'Step 6: Configure Nginx'",
       "ln -s /etc/nginx/sites-available/zanaka.conf /etc/nginx/sites-enabled/ || true",
       "nginx -t",
       "systemctl reload nginx",
 
       # --- Install Certbot for SSL ---
+      "echo 'Step 7: Reload Nginx and configure SSL'",
       "apt-get install -y certbot python3-certbot-nginx",
       # Attempt SSL issuance; ignore failures if DNS not pointing yet
       "certbot --nginx --non-interactive --agree-tos -m stevencallistus19@gmail.com -d api.${var.base_domain} || true",
