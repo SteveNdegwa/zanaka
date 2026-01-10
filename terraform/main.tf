@@ -1,3 +1,16 @@
+terraform {
+  required_version = ">= 1.5.6"
+
+  required_providers {
+    null = {
+      source  = "hashicorp/null"
+      version = "3.2.1"
+    }
+  }
+}
+
+provider "null" {}
+
 resource "null_resource" "zanaka_server" {
   connection {
     type        = "ssh"
@@ -6,28 +19,37 @@ resource "null_resource" "zanaka_server" {
     private_key = var.ssh_private_key
   }
 
+  # Ensure /opt/zanaka exists and is owned by the ssh user
+  provisioner "remote-exec" {
+    inline = [
+      "sudo mkdir -p /opt/zanaka",
+      "sudo chown ${var.ssh_user}:${var.ssh_user} /opt/zanaka"
+    ]
+  }
+
   # Copy the docker-compose.yml from local repo to server
   provisioner "file" {
     source      = "${path.module}/../docker-compose.yml"
     destination = "/opt/zanaka/docker-compose.yml"
   }
 
+  # Run setup commands on the VPS
   provisioner "remote-exec" {
     inline = [
       # --- System update & essentials ---
-      "apt-get update -y",
-      "apt-get install -y docker.io git curl nginx software-properties-common",
-      "systemctl enable docker",
-      "systemctl start docker",
-      "systemctl enable nginx",
-      "systemctl start nginx",
+      "sudo apt-get update -y",
+      "sudo apt-get install -y docker.io git curl nginx software-properties-common",
+      "sudo systemctl enable docker",
+      "sudo systemctl start docker",
+      "sudo systemctl enable nginx",
+      "sudo systemctl start nginx",
 
       # --- Install Docker Compose v2 ---
       <<-EOT
       DOCKER_COMPOSE_VERSION=2.21.0
       if ! command -v docker-compose >/dev/null || [ $(docker-compose version --short) != $DOCKER_COMPOSE_VERSION ]; then
-        curl -L https://github.com/docker/compose/releases/download/$DOCKER_COMPOSE_VERSION/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
-        chmod +x /usr/local/bin/docker-compose
+        sudo curl -L https://github.com/docker/compose/releases/download/$DOCKER_COMPOSE_VERSION/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
       fi
       EOT
       ,
@@ -126,18 +148,18 @@ resource "null_resource" "zanaka_server" {
       ,
 
       # Enable site & reload Nginx
-      "ln -s /etc/nginx/sites-available/zanaka.conf /etc/nginx/sites-enabled/ || true",
-      "nginx -t",
-      "systemctl reload nginx",
+      "sudo ln -s /etc/nginx/sites-available/zanaka.conf /etc/nginx/sites-enabled/ || true",
+      "sudo nginx -t",
+      "sudo systemctl reload nginx",
 
       # --- Install Certbot for SSL ---
-      "apt-get install -y certbot python3-certbot-nginx",
+      "sudo apt-get install -y certbot python3-certbot-nginx",
       # Attempt SSL issuance; ignore failures if DNS not pointing yet
-      "certbot --nginx --non-interactive --agree-tos -m stevencallistus19@gmail.com -d api.${var.base_domain} || true",
-      "certbot --nginx --non-interactive --agree-tos -m stevencallistus19@gmail.com -d portainer.${var.base_domain} || true",
-      "certbot --nginx --non-interactive --agree-tos -m stevencallistus19@gmail.com -d grafana.${var.base_domain} || true",
-      "certbot --nginx --non-interactive --agree-tos -m stevencallistus19@gmail.com -d flower.${var.base_domain} || true",
-      "systemctl reload nginx"
+      "sudo certbot --nginx --non-interactive --agree-tos -m stevencallistus19@gmail.com -d api.${var.base_domain} || true",
+      "sudo certbot --nginx --non-interactive --agree-tos -m stevencallistus19@gmail.com -d portainer.${var.base_domain} || true",
+      "sudo certbot --nginx --non-interactive --agree-tos -m stevencallistus19@gmail.com -d grafana.${var.base_domain} || true",
+      "sudo certbot --nginx --non-interactive --agree-tos -m stevencallistus19@gmail.com -d flower.${var.base_domain} || true",
+      "sudo systemctl reload nginx"
     ]
   }
 }
