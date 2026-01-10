@@ -69,7 +69,7 @@ class ApiClient(BaseModel):
         ordering = ['name']
 
     def __str__(self) -> str:
-        return f'{self.name} ({'Active' if self.is_active else 'Inactive'})'
+        return f"{self.name} ({'Active' if self.is_active else 'Inactive'})"
 
     def save(self, *args, **kwargs) -> None:
         if not self.api_key:
