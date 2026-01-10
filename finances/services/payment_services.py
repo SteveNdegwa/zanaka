@@ -130,6 +130,12 @@ class PaymentServices(BaseServices):
             except Exception as ex:
                 logger.exception(f'Send new payment notification error: {ex}')
 
+        # noinspection PyBroadException
+        try:
+            cls.allocate_payments(payment.student.id)
+        except:
+            pass
+
         return payment
 
     @classmethod
@@ -195,6 +201,12 @@ class PaymentServices(BaseServices):
                 )
             except Exception as ex:
                 logger.exception(f'Send new payment notification error: {ex}')
+
+        # noinspection PyBroadException
+        try:
+            cls.allocate_payments(payment.student.id)
+        except:
+            pass
 
 
         return payment
@@ -393,13 +405,13 @@ class PaymentServices(BaseServices):
             .select_for_update()
             .filter(
                 student=student,
-                status=PaymentStatus.COMPLETED,
-                unassigned_amount__gt=0
+                status__in=[PaymentStatus.COMPLETED, PaymentStatus.PARTIALLY_REFUNDED],
             )
             .order_by('created_at')
         )
+        payments = [p for p in payments if p.unassigned_amount > 0]
 
-        if not payments.exists():
+        if not payments:
             return
 
         # Fetch allocatable invoices
@@ -409,12 +421,12 @@ class PaymentServices(BaseServices):
             .filter(
                 ~Q( status__in=[InvoiceStatus.DRAFT, InvoiceStatus.CANCELLED]),
                 student=student,
-                balance__gt=0
             )
             .order_by('priority', 'due_date', 'created_at')
         )
+        invoices = [inv for inv in invoices if inv.balance > 0]
 
-        if not invoices.exists():
+        if not invoices:
             return
 
         invoice_map = {inv.id: inv for inv in invoices}
@@ -424,6 +436,8 @@ class PaymentServices(BaseServices):
 
             if remaining_payment_amount <= 0:
                 continue
+
+            allocation_counter = 1
 
             # ---- Step 1: Allocate to priority invoice first ----
             if payment.priority_invoice_id:
@@ -442,12 +456,14 @@ class PaymentServices(BaseServices):
                     PaymentAllocation.objects.create(
                         payment=payment,
                         invoice=priority_invoice,
-                        allocated_amount=allocation_amount
+                        allocated_amount=allocation_amount,
+                        allocation_order=allocation_counter
                     )
 
+                    allocation_counter += 1
                     remaining_payment_amount -= allocation_amount
                     priority_invoice.refresh_from_db()
-                    cls._update_invoice_status(priority_invoice)
+                    priority_invoice.update_status()
 
             # ---- Step 2: Allocate any remaining amount to other invoices ----
             for invoice in invoices:
@@ -469,20 +485,11 @@ class PaymentServices(BaseServices):
                 PaymentAllocation.objects.create(
                     payment=payment,
                     invoice=invoice,
-                    allocated_amount=allocation_amount
+                    allocated_amount=allocation_amount,
+                    allocation_order=allocation_counter
                 )
 
+                allocation_counter += 1
                 remaining_payment_amount -= allocation_amount
                 invoice.refresh_from_db()
-                cls._update_invoice_status(invoice)
-
-    @staticmethod
-    def _update_invoice_status(invoice: Invoice) -> None:
-        if invoice.balance <= 0:
-            invoice.status = InvoiceStatus.PAID
-        elif invoice.paid_amount > 0:
-            invoice.status = InvoiceStatus.PARTIALLY_PAID
-        else:
-            invoice.status = InvoiceStatus.PENDING
-
-        invoice.save(update_fields=['status'])
+                invoice.update_status()

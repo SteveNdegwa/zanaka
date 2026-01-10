@@ -162,6 +162,13 @@ class InvoiceServices(BaseServices):
             except Exception as ex:
                 logger.exception(f'Send new invoice notification error: {ex}')
 
+        from .payment_services import PaymentServices
+        # noinspection PyBroadException
+        try:
+            PaymentServices.allocate_payments(student.id)
+        except:
+            pass
+
         return invoice
 
     @classmethod

@@ -1,0 +1,138 @@
+version: "3.9"
+
+networks:
+  backend:
+    driver: bridge
+  monitoring:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  portainer_data:
+  grafana_data:
+  staticfiles:
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: zanaka_postgres
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${SQL_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: zanaka_rabbitmq
+    restart: always
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "15672:15672"
+    env_file:
+      - .env
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  zanaka:
+    image: stevendegwa/zanaka:${DOCKER_IMAGE_TAG}
+    container_name: zanaka_app
+    command: >
+      sh -c "
+      python manage.py migrate &&
+      python manage.py collectstatic --noinput &&
+      gunicorn zanaka.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 2
+      --timeout 120
+      "
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./staticfiles:/usr/src/app/staticfiles
+    expose:
+      - "8000"
+    networks:
+      - backend
+    restart: always
+
+  celery_worker:
+    image: stevendegwa/zanaka:${DOCKER_IMAGE_TAG}
+    container_name: zanaka_celery_worker
+    command: celery -A zanaka worker -l INFO
+    env_file:
+      - .env
+    depends_on:
+      - zanaka
+      - rabbitmq
+    networks:
+      - backend
+    restart: always
+
+  celery_beat:
+    image: stevendegwa/zanaka:${DOCKER_IMAGE_TAG}
+    container_name: zanaka_celery_beat
+    command: celery -A zanaka beat -l INFO
+    env_file:
+      - .env
+    depends_on:
+      - zanaka
+      - rabbitmq
+    networks:
+      - backend
+    restart: always
+
+  flower:
+    image: mher/flower:2.0
+    container_name: zanaka_flower
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "5555:5555"
+    networks:
+      - backend
+    depends_on:
+      - rabbitmq
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: zanaka_portainer
+    restart: always
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      - backend
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: zanaka_grafana
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - monitoring

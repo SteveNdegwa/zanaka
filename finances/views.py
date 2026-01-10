@@ -189,6 +189,15 @@ def reverse_payment(request: ExtendedRequest, payment_id) -> JsonResponse:
     )
 
 
+@user_login_required(required_permission='finances.allocate_payments')
+def allocate_payments(request: ExtendedRequest, student_id) -> JsonResponse:
+    PaymentServices.allocate_payments(student_id=student_id)
+
+    return ResponseProvider.success(
+        message='Payments allocated successfully'
+    )
+
+
 @user_login_required(required_permission='finances.create_refund')
 def create_refund(request: ExtendedRequest, payment_id) -> JsonResponse:
     refund = PaymentServices.create_refund(

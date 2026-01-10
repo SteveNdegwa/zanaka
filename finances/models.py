@@ -309,6 +309,10 @@ class Invoice(BaseModel):
 
         return temp_status
 
+    def update_status(self) -> None:
+        self.status = self.computed_status
+        self.save(update_fields=['status'])
+
     def save(self, *args, **kwargs) -> None:
         if not self.invoice_reference:
             self.invoice_reference = self.generate_invoice_reference()

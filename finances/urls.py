@@ -25,6 +25,7 @@ urlpatterns = [
     path('refunds/<str:refund_id>/cancel/', views.cancel_refund, name='create-refund'),
     path('payments/<str:payment_id>/', views.view_payment, name='view-payment'),
     path('payments/', views.list_payments, name='list-payments'),
+    path('students/<str:student_id>/payments/allocate/', views.allocate_payments, name='allocate-payments'),
 
     # Expense management
     path('expenses/create/', views.create_expense, name='create-expense'),
