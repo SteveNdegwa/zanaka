@@ -16,7 +16,13 @@ resource "null_resource" "zanaka_server" {
     ]
   }
 
-  # Step 1: System update & essentials
+  # Step 1: Copy the docker-compose.yml from local repo to server
+  provisioner "file" {
+    source      = "${path.module}/../docker-compose.yml"
+    destination = "/opt/zanaka/docker-compose.yml"
+  }
+
+  # Step 2: System update & essentials
   provisioner "remote-exec" {
     inline = [
       "set -x",
@@ -30,7 +36,7 @@ resource "null_resource" "zanaka_server" {
     ]
   }
 
-  # Step 2: Install Docker Compose v2
+  # Step 3: Install Docker Compose v2
   provisioner "remote-exec" {
     inline = [
       "set -x",
@@ -43,7 +49,7 @@ resource "null_resource" "zanaka_server" {
     ]
   }
 
-  # Step 3: Create project directories
+  # Step 4: Create project directories
   provisioner "remote-exec" {
     inline = [
       "set -x",
@@ -53,7 +59,7 @@ resource "null_resource" "zanaka_server" {
     ]
   }
 
-  # Step 4: Generate .env from Terraform variables
+  # Step 5: Generate .env from Terraform variables
   provisioner "remote-exec" {
     inline = [
       "set -x",
@@ -80,13 +86,13 @@ resource "null_resource" "zanaka_server" {
     ]
   }
 
-  # Step 5: Copy docker-compose.yml
+  # Step 6: Copy docker-compose.yml
   provisioner "file" {
     source      = "${path.module}/../docker-compose.yml"
     destination = "/opt/zanaka/docker-compose.yml"
   }
 
-  # Step 6: Start Docker stack
+  # Step 7: Start Docker stack
   provisioner "remote-exec" {
     inline = [
       "set -x",
@@ -98,7 +104,7 @@ resource "null_resource" "zanaka_server" {
     ]
   }
 
-  # Step 7: Nginx configuration
+  # Step 8: Nginx configuration
   provisioner "remote-exec" {
     inline = [
       "set -x",
@@ -165,7 +171,7 @@ resource "null_resource" "zanaka_server" {
     ]
   }
 
-  # Step 8: Enable site & reload Nginx
+  # Step 9: Enable site & reload Nginx
   provisioner "remote-exec" {
     inline = [
       "set -x",
@@ -176,7 +182,7 @@ resource "null_resource" "zanaka_server" {
     ]
   }
 
-  # Step 9: Install Certbot and SSL
+  # Step 10: Install Certbot and SSL
   provisioner "remote-exec" {
     inline = [
       "set -x",
