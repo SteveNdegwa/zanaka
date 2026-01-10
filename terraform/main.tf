@@ -16,13 +16,7 @@ resource "null_resource" "zanaka_server" {
     ]
   }
 
-  # Step 1: Copy the docker-compose.yml from local repo to server
-  provisioner "file" {
-    source      = "${path.module}/../docker-compose.yml"
-    destination = "/opt/zanaka/docker-compose.yml"
-  }
-
-  # Step 2: System update & essentials
+  # Step 1: System update & essentials
   provisioner "remote-exec" {
     inline = [
       "set -x",
@@ -36,20 +30,24 @@ resource "null_resource" "zanaka_server" {
     ]
   }
 
-  # Step 3: Install Docker Compose v2
-  provisioner "remote-exec" {
-    inline = [
-      "set -x",
-      "echo 'Step 2: Install Docker Compose v2'",
-      "DOCKER_COMPOSE_VERSION=2.21.0",
-      "if ! command -v docker-compose >/dev/null || [ $(docker-compose version --short) != $DOCKER_COMPOSE_VERSION ]; then",
-      "  sudo curl -L https://github.com/docker/compose/releases/download/$DOCKER_COMPOSE_VERSION/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose",
-      "  sudo chmod +x /usr/local/bin/docker-compose",
-      "fi"
-    ]
-  }
+# Step 2: Install Docker Compose v2
+provisioner "remote-exec" {
+  inline = [
+    "set -x",
+    "echo 'Step 2: Install Docker Compose v2'",
+    "DOCKER_COMPOSE_VERSION=2.21.0",
+    "COMPOSE_BIN=/usr/local/bin/docker-compose",
+    "if ! command -v docker-compose >/dev/null || [ \"$(docker-compose version --short 2>/dev/null)\" != \"$DOCKER_COMPOSE_VERSION\" ]; then",
+    "  sudo curl -L https://github.com/docker/compose/releases/download/v$DOCKER_COMPOSE_VERSION/docker-compose-$(uname -s)-$(uname -m) -o $COMPOSE_BIN",
+    "  sudo chmod +x $COMPOSE_BIN",
+    "  echo 'Docker Compose installed at $COMPOSE_BIN'",
+    "  sudo $COMPOSE_BIN version",
+    "fi"
+  ]
+}
 
-  # Step 4: Create project directories
+
+  # Step 3: Create project directories
   provisioner "remote-exec" {
     inline = [
       "set -x",
@@ -59,7 +57,7 @@ resource "null_resource" "zanaka_server" {
     ]
   }
 
-  # Step 5: Generate .env from Terraform variables
+  # Step 4: Generate .env from Terraform variables
   provisioner "remote-exec" {
     inline = [
       "set -x",
@@ -86,25 +84,25 @@ resource "null_resource" "zanaka_server" {
     ]
   }
 
-  # Step 6: Copy docker-compose.yml
+  # Step 5: Copy docker-compose.yml
   provisioner "file" {
     source      = "${path.module}/../docker-compose.yml"
     destination = "/opt/zanaka/docker-compose.yml"
   }
 
-  # Step 7: Start Docker stack
-  provisioner "remote-exec" {
-    inline = [
-      "set -x",
-      "echo 'Step 6: Pull and start Docker stack'",
-      "cd /opt/zanaka",
-      "sudo docker-compose pull",
-      "sudo docker-compose up -d",
-      "sudo docker-compose exec -T zanaka python manage.py collectstatic --noinput"
-    ]
-  }
+  # Step 6: Start Docker stack
+provisioner "remote-exec" {
+  inline = [
+    "set -x",
+    "echo 'Step 6: Pull and start Docker stack'",
+    "cd /opt/zanaka",
+    "sudo /usr/local/bin/docker-compose pull",
+    "sudo /usr/local/bin/docker-compose up -d",
+    "sudo /usr/local/bin/docker-compose exec -T zanaka python manage.py collectstatic --noinput"
+  ]
+}
 
-  # Step 8: Nginx configuration
+  # Step 7: Nginx configuration
   provisioner "remote-exec" {
     inline = [
       "set -x",
@@ -171,7 +169,7 @@ resource "null_resource" "zanaka_server" {
     ]
   }
 
-  # Step 9: Enable site & reload Nginx
+  # Step 8: Enable site & reload Nginx
   provisioner "remote-exec" {
     inline = [
       "set -x",
@@ -182,7 +180,7 @@ resource "null_resource" "zanaka_server" {
     ]
   }
 
-  # Step 10: Install Certbot and SSL
+  # Step 9: Install Certbot and SSL
   provisioner "remote-exec" {
     inline = [
       "set -x",
