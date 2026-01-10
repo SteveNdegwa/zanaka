@@ -70,6 +70,7 @@ jobs:
         run: |
           terraform apply -auto-approve \
             -var "vps_host=${{ secrets.VPS_HOST }}" \
+            -var "ssh_user=${{ secrets.VPS_SSH_USER }}" \
             -var "ssh_private_key=${{ secrets.VPS_SSH_KEY }}" \
             -var "docker_image_tag=${{ github.sha }}" \
             -var "db_password='${{ secrets.DB_PASSWORD }}'" \
