@@ -9,33 +9,36 @@ resource "null_resource" "zanaka_server" {
   # Step 0: Ensure /opt/zanaka exists and is owned by the ssh user
   provisioner "remote-exec" {
     inline = [
+      "set -x",
       "echo 'Step 0: Ensure /opt/zanaka exists and set ownership'",
-      "mkdir -p /opt/zanaka",
-      # "sudo chown ${var.ssh_user}:${var.ssh_user} /opt/zanaka"
+      "sudo mkdir -p /opt/zanaka",
+      "sudo chown ${var.ssh_user}:${var.ssh_user} /opt/zanaka"
     ]
   }
 
   # Step 1: System update & essentials
   provisioner "remote-exec" {
     inline = [
+      "set -x",
       "echo 'Step 1: Update system and install essentials'",
-      "apt-get update -y",
-      "apt-get install -y docker.io git curl nginx software-properties-common",
-      "systemctl enable docker",
-      "systemctl start docker",
-      "systemctl enable nginx",
-      "systemctl start nginx"
+      "sudo apt-get update -y",
+      "sudo apt-get install -y docker.io git curl nginx software-properties-common",
+      "sudo systemctl enable docker",
+      "sudo systemctl start docker",
+      "sudo systemctl enable nginx",
+      "sudo systemctl start nginx"
     ]
   }
 
   # Step 2: Install Docker Compose v2
   provisioner "remote-exec" {
     inline = [
+      "set -x",
       "echo 'Step 2: Install Docker Compose v2'",
       "DOCKER_COMPOSE_VERSION=2.21.0",
       "if ! command -v docker-compose >/dev/null || [ $(docker-compose version --short) != $DOCKER_COMPOSE_VERSION ]; then",
-      "  curl -L https://github.com/docker/compose/releases/download/$DOCKER_COMPOSE_VERSION/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose",
-      "  chmod +x /usr/local/bin/docker-compose",
+      "  sudo curl -L https://github.com/docker/compose/releases/download/$DOCKER_COMPOSE_VERSION/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose",
+      "  sudo chmod +x /usr/local/bin/docker-compose",
       "fi"
     ]
   }
@@ -43,6 +46,7 @@ resource "null_resource" "zanaka_server" {
   # Step 3: Create project directories
   provisioner "remote-exec" {
     inline = [
+      "set -x",
       "echo 'Step 3: Create project directories'",
       "mkdir -p /opt/zanaka/static",
       "cd /opt/zanaka"
@@ -52,6 +56,7 @@ resource "null_resource" "zanaka_server" {
   # Step 4: Generate .env from Terraform variables
   provisioner "remote-exec" {
     inline = [
+      "set -x",
       "echo 'Step 4: Generate .env file'",
       <<-EOT
       cat > /opt/zanaka/.env <<EOF
@@ -84,20 +89,22 @@ resource "null_resource" "zanaka_server" {
   # Step 6: Start Docker stack
   provisioner "remote-exec" {
     inline = [
+      "set -x",
       "echo 'Step 6: Pull and start Docker stack'",
       "cd /opt/zanaka",
-      "docker-compose pull",
-      "docker-compose up -d",
-      "docker-compose exec -T zanaka python manage.py collectstatic --noinput"
+      "sudo docker-compose pull",
+      "sudo docker-compose up -d",
+      "sudo docker-compose exec -T zanaka python manage.py collectstatic --noinput"
     ]
   }
 
   # Step 7: Nginx configuration
   provisioner "remote-exec" {
     inline = [
+      "set -x",
       "echo 'Step 7: Configure Nginx'",
       <<-EOT
-      cat > /etc/nginx/sites-available/zanaka.conf <<EOF
+      sudo bash -c 'cat > /etc/nginx/sites-available/zanaka.conf <<EOF
       # Django app
       server {
           listen 80;
@@ -153,7 +160,7 @@ resource "null_resource" "zanaka_server" {
               proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
           }
       }
-      EOF
+      EOF'
       EOT
     ]
   }
@@ -161,23 +168,25 @@ resource "null_resource" "zanaka_server" {
   # Step 8: Enable site & reload Nginx
   provisioner "remote-exec" {
     inline = [
+      "set -x",
       "echo 'Step 8: Enable Nginx site and reload'",
-      "ln -s /etc/nginx/sites-available/zanaka.conf /etc/nginx/sites-enabled/ || true",
-      "nginx -t",
-      "systemctl reload nginx"
+      "sudo ln -s /etc/nginx/sites-available/zanaka.conf /etc/nginx/sites-enabled/ || true",
+      "sudo nginx -t",
+      "sudo systemctl reload nginx"
     ]
   }
 
   # Step 9: Install Certbot and SSL
   provisioner "remote-exec" {
     inline = [
+      "set -x",
       "echo 'Step 9: Install Certbot and configure SSL'",
-      "apt-get install -y certbot python3-certbot-nginx",
-      "certbot --nginx --non-interactive --agree-tos -m stevencallistus19@gmail.com -d api.${var.base_domain} || true",
-      "certbot --nginx --non-interactive --agree-tos -m stevencallistus19@gmail.com -d portainer.${var.base_domain} || true",
-      "certbot --nginx --non-interactive --agree-tos -m stevencallistus19@gmail.com -d grafana.${var.base_domain} || true",
-      "certbot --nginx --non-interactive --agree-tos -m stevencallistus19@gmail.com -d flower.${var.base_domain} || true",
-      "systemctl reload nginx"
+      "sudo apt-get install -y certbot python3-certbot-nginx",
+      "sudo certbot --nginx --non-interactive --agree-tos -m stevencallistus19@gmail.com -d api.${var.base_domain} || true",
+      "sudo certbot --nginx --non-interactive --agree-tos -m stevencallistus19@gmail.com -d portainer.${var.base_domain} || true",
+      "sudo certbot --nginx --non-interactive --agree-tos -m stevencallistus19@gmail.com -d grafana.${var.base_domain} || true",
+      "sudo certbot --nginx --non-interactive --agree-tos -m stevencallistus19@gmail.com -d flower.${var.base_domain} || true",
+      "sudo systemctl reload nginx"
     ]
   }
 }
