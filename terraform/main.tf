@@ -67,11 +67,11 @@ provisioner "remote-exec" {
       DJANGO_SECRET_KEY=${var.django_secret}
       DJANGO_DEBUG=True
       SQL_ENGINE=django.db.backends.postgresql
-      SQL_USER=postgres
-      SQL_PASSWORD=${var.db_password}
-      SQL_DATABASE=notification_bus
-      SQL_HOST=postgres
-      SQL_PORT=5432
+      POSTGRES_USER=postgres
+      POSTGRES_PASSWORD=${var.db_password}
+      POSTGRES_DB=zanaka
+      POSTGRES_HOST=postgres
+      POSTGRES_PORT=5432
       RABBITMQ_USER=guest
       RABBITMQ_PASSWORD=${var.rabbitmq_password}
       RABBITMQ_HOST=rabbitmq
