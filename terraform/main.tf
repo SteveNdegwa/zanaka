@@ -112,7 +112,7 @@ provisioner "remote-exec" {
       # Django app
       server {
           listen 80;
-          server_name api.${var.base_domain};
+          server_name _;
 
           location / {
               proxy_pass http://127.0.0.1:8000;
@@ -155,6 +155,7 @@ provisioner "remote-exec" {
       # Flower
       server {
           listen 80;
+          # server_name flower.${var.base_domain};
           server_name _;
 
           location / {
