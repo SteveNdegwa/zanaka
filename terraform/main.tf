@@ -155,9 +155,9 @@ provisioner "remote-exec" {
       # Flower
       server {
           listen 80;
-          server_name flower.${var.base_domain};
+          server_name _;
 
-          location / {
+          location /flower/ {
               proxy_pass http://127.0.0.1:5555;
               proxy_set_header Host \$host;
               proxy_set_header X-Real-IP \$remote_addr;
