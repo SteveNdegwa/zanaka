@@ -16,8 +16,7 @@ x-django-env: &django-env
   CELERY_BROKER_URL: amqp://zanaka:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672//
 
 x-django-full-env: &django-full-env
-  <<: *django-env
-  <<: *postgres-env
+  <<: [*django-common, *postgres-env]
 
 x-app-image: &app-image stevendegwa/zanaka:${DOCKER_IMAGE_TAG}
 
