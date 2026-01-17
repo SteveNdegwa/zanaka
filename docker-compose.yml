@@ -1,5 +1,22 @@
 version: "3.9"
 
+x-postgres-env: &postgres-env
+  POSTGRES_USER: zanaka
+  POSTGRES_DB: zanaka
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+x-rabbitmq-env: &rabbitmq-env
+  RABBITMQ_DEFAULT_USER: zanaka
+  RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+
+x-django-common: &django-common
+  DJANGO_SETTINGS_MODULE: zanaka.settings.production
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+  DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  CELERY_BROKER_URL: amqp://zanaka:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672//
+
+x-app-image: &app-image stevendegwa/zanaka:${DOCKER_IMAGE_TAG}
+
 networks:
   backend:
     driver: bridge
@@ -18,8 +35,8 @@ services:
     image: postgres:16-alpine
     container_name: zanaka_postgres
     restart: always
-    env_file:
-      - .env
+    environment:
+      <<: *postgres-env
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -34,12 +51,12 @@ services:
     image: rabbitmq:3.13-management-alpine
     container_name: zanaka_rabbitmq
     restart: always
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
+    environment:
+      <<: *rabbitmq-env
     ports:
       - "15672:15672"
-    env_file:
-      - .env
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
     networks:
       - backend
     healthcheck:
@@ -49,19 +66,17 @@ services:
       retries: 5
 
   zanaka:
-    image: stevendegwa/zanaka:${DOCKER_IMAGE_TAG}
+    image: *app-image
     container_name: zanaka_app
     command: >
       sh -c "
       python manage.py migrate &&
       python manage.py collectstatic --noinput &&
-      gunicorn zanaka.wsgi:application
-      --bind 0.0.0.0:8000
-      --workers 2
-      --timeout 120
+      gunicorn zanaka.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 120
       "
-    env_file:
-      - .env
+    environment:
+      <<: *django-common
+      <<: *postgres-env
     depends_on:
       postgres:
         condition: service_healthy
@@ -76,11 +91,12 @@ services:
     restart: always
 
   celery_worker:
-    image: stevendegwa/zanaka:${DOCKER_IMAGE_TAG}
+    image: *app-image
     container_name: zanaka_celery_worker
     command: celery -A zanaka worker -l INFO
-    env_file:
-      - .env
+    environment:
+      <<: *django-common
+      <<: *postgres-env
     depends_on:
       - zanaka
       - rabbitmq
@@ -89,11 +105,12 @@ services:
     restart: always
 
   celery_beat:
-    image: stevendegwa/zanaka:${DOCKER_IMAGE_TAG}
+    image: *app-image
     container_name: zanaka_celery_beat
     command: celery -A zanaka beat -l INFO
-    env_file:
-      - .env
+    environment:
+      <<: *django-common
+      <<: *postgres-env
     depends_on:
       - zanaka
       - rabbitmq
@@ -105,8 +122,8 @@ services:
     image: mher/flower:2.0
     container_name: zanaka_flower
     restart: always
-    env_file:
-      - .env
+    environment:
+      <<: *django-common
     ports:
       - "5555:5555"
     networks:

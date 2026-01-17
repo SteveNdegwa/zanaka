@@ -1,4 +1,4 @@
-name: Build and deploy
+name: Build and Deploy
 
 on:
   push:
@@ -11,9 +11,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v4
         with:
-          python-version: 3.11
+          python-version: '3.11'
 
       - name: Install Dependencies
         run: |
@@ -23,11 +23,12 @@ jobs:
       - name: Run Tests
         run: python manage.py test
 
-  build:
+  build-and-deploy:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -41,39 +42,57 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Generate Image Tag
+        id: tag
+        run: |
+          IMAGE_NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]' | sed 's:.*/::')
+          echo "image_tag=${{ secrets.DOCKERHUB_USERNAME }}/$IMAGE_NAME:${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "short_sha=${{ github.sha ::7 }}" >> $GITHUB_OUTPUT
+
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: |
-            stevendegwa/zanaka:${{ github.sha }}
+          tags: ${{ steps.tag.outputs.image_tag }}
           platforms: linux/amd64,linux/arm64/v8
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Terraform
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: 1.5.6
-
-      - name: Terraform Init
-        run: terraform init
-        working-directory: ./terraform
-
-      - name: Terraform Apply
+      - name: Encode docker-compose.yml
+        id: compose
         run: |
-          terraform apply -auto-approve \
-            -var "vps_host=${{ secrets.VPS_HOST }}" \
-            -var "ssh_user=${{ secrets.VPS_SSH_USER }}" \
-            -var "ssh_private_key=${{ secrets.VPS_SSH_KEY }}" \
-            -var "docker_image_tag=${{ github.sha }}" \
-            -var "db_password='${{ secrets.DB_PASSWORD }}'" \
-            -var "django_secret='${{ secrets.DJANGO_SECRET }}'" \
-            -var "rabbitmq_password='${{ secrets.RABBITMQ_PASSWORD }}'"
-        working-directory: ./terraform
+          COMPOSE_FILE="docker-compose.yml"
+          if [ ! -f "$COMPOSE_FILE" ]; then
+            echo "Error: $COMPOSE_FILE not found!"
+            exit 1
+          fi
+          COMPOSE_B64=$(base64 -w 0 "$COMPOSE_FILE")
+          echo "b64=$COMPOSE_B64" >> $GITHUB_OUTPUT
+
+      - name: Collect All Repository Secrets Dynamically
+        run: |
+          # Create JSON with all repo secrets (name = value)
+          SECRETS_JSON=$(jq -n 'env | with_entries(select(.key | startswith("")))')
+          
+          # Add DOCKER_IMAGE_TAG (not a secret)
+          FINAL_JSON=$(echo "$SECRETS_JSON" | jq --arg tag "${{ steps.tag.outputs.image_tag }}" '. + {DOCKER_IMAGE_TAG: $tag}')
+          
+          # Compact for payload
+          ENCODED=$(echo "$FINAL_JSON" | jq -c .)
+          echo "secrets_json=$ENCODED" >> $GITHUB_ENV
+
+      - name: Trigger Deployment in Infra Repo
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.INFRA_PAT }}
+          repository: stevendegwa/infra
+          event-type: deploy-app
+          client-payload: |
+            {
+              "app_repo": "${{ github.repository }}",
+              "branch": "${{ github.ref_name }}",
+              "env": "prod",
+              "sha": "${{ github.sha }}",
+              "image_tag": "${{ steps.tag.outputs.image_tag }}",
+              "docker_compose_b64": "${{ steps.compose.outputs.b64 }}",
+              "env_secrets": ${{ env.secrets_json }}
+            }
