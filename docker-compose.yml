@@ -18,7 +18,7 @@ x-django-env: &django-env
 x-django-full-env: &django-full-env
   <<: [*django-env, *postgres-env]
 
-x-app-image: &app-image stevendegwa/zanaka:${DOCKER_IMAGE_TAG}
+x-app-image: &app-image ${DOCKER_IMAGE_TAG}
 
 networks:
   backend:
