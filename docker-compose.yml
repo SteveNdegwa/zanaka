@@ -3,7 +3,7 @@ version: "3.9"
 x-postgres-env: &postgres-env
   POSTGRES_USER: postgres
   POSTGRES_DB: postgres
-  POSTGRES_PASSWORD: postgres
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
 x-rabbitmq-env: &rabbitmq-env
   RABBITMQ_DEFAULT_USER: zanaka
@@ -47,8 +47,8 @@ services:
       test: [ "CMD-SHELL", "pg_isready -U postgres || exit 1" ]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 30s
+      retries: 5
+      start_period: 5s
 
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
@@ -86,8 +86,8 @@ services:
         condition: service_healthy
     volumes:
       - ./static:/usr/src/app/staticfiles
-    expose:
-      - "8000"
+    ports:
+      - "8000:8000"
     networks:
       - backend
     restart: always
