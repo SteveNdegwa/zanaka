@@ -1,8 +1,8 @@
 version: "3.9"
 
 x-postgres-env: &postgres-env
-  POSTGRES_USER: zanaka
-  POSTGRES_DB: zanaka
+  POSTGRES_USER: postgres
+  POSTGRES_DB: postgres
   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
 x-rabbitmq-env: &rabbitmq-env
@@ -12,7 +12,6 @@ x-rabbitmq-env: &rabbitmq-env
 x-django-env: &django-env
   DJANGO_SETTINGS_MODULE: zanaka.settings.production
   DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
-  DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
   CELERY_BROKER_URL: amqp://zanaka:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672//
 
 x-django-full-env: &django-full-env
