@@ -97,3 +97,4 @@ jobs:
               "docker_compose_b64": "${{ steps.compose.outputs.b64 }}",
               "env_secrets": ${{ env.secrets_json }}
             }
+
