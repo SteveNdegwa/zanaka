@@ -1,24 +1,5 @@
 version: "3.9"
 
-x-postgres-env: &postgres-env
-  POSTGRES_USER: postgres
-  POSTGRES_DB: postgres
-  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-
-x-rabbitmq-env: &rabbitmq-env
-  RABBITMQ_DEFAULT_USER: zanaka
-  RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
-
-x-django-env: &django-env
-  DJANGO_SETTINGS_MODULE: zanaka.settings.production
-  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
-  CELERY_BROKER_URL: amqp://zanaka:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672//
-
-x-django-full-env: &django-full-env
-  <<: [*django-env, *postgres-env]
-
-x-app-image: &app-image ${DOCKER_IMAGE_TAG}
-
 networks:
   backend:
     driver: bridge
@@ -38,7 +19,9 @@ services:
     container_name: zanaka_postgres
     restart: always
     environment:
-      <<: *postgres-env
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -55,7 +38,8 @@ services:
     container_name: zanaka_rabbitmq
     restart: always
     environment:
-      <<: *rabbitmq-env
+      RABBITMQ_DEFAULT_USER: zanaka
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
     ports:
       - "15672:15672"
     volumes:
@@ -69,7 +53,7 @@ services:
       retries: 5
 
   zanaka:
-    image: *app-image
+    image: ${DOCKER_IMAGE_TAG}
     container_name: zanaka_app
     command: >
       sh -c "
@@ -78,7 +62,12 @@ services:
       gunicorn zanaka.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 120
       "
     environment:
-      <<: *django-full-env
+      DJANGO_SETTINGS_MODULE: zanaka.settings.production
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      CELERY_BROKER_URL: amqp://zanaka:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672//
     depends_on:
       postgres:
         condition: service_healthy
@@ -93,11 +82,16 @@ services:
     restart: always
 
   celery_worker:
-    image: *app-image
+    image: ${DOCKER_IMAGE_TAG}
     container_name: zanaka_celery_worker
     command: celery -A zanaka worker -l INFO
     environment:
-      <<: *django-full-env
+      DJANGO_SETTINGS_MODULE: zanaka.settings.production
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      CELERY_BROKER_URL: amqp://zanaka:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672//
     depends_on:
       - zanaka
       - rabbitmq
@@ -106,11 +100,16 @@ services:
     restart: always
 
   celery_beat:
-    image: *app-image
+    image: ${DOCKER_IMAGE_TAG}
     container_name: zanaka_celery_beat
     command: celery -A zanaka beat -l INFO
     environment:
-      <<: *django-full-env
+      DJANGO_SETTINGS_MODULE: zanaka.settings.production
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      CELERY_BROKER_URL: amqp://zanaka:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672//
     depends_on:
       - zanaka
       - rabbitmq
@@ -123,7 +122,7 @@ services:
     container_name: zanaka_flower
     restart: always
     environment:
-      <<: *django-env
+      CELERY_BROKER_URL: amqp://zanaka:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672//
     ports:
       - "5555:5555"
     networks:
