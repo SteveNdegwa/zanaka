@@ -53,6 +53,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -147,14 +148,17 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
+# Use compressed files + manifest for cache busting
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # RabbitMQ
-RABBITMQ_USER = os.environ.get('RABBITMQ_USER', 'guest')
-RABBITMQ_PASSWORD = os.environ.get('RABBITMQ_PASSWORD', 'guest')
+RABBITMQ_USER = os.environ.get('RABBITMQ_DEFAULT_USER', 'guest')
+RABBITMQ_PASSWORD = os.environ.get('RABBITMQ_DEFAULT_PASS', 'guest')
 RABBITMQ_HOST = os.environ.get('RABBITMQ_HOST', 'rabbitmq')
 RABBITMQ_PORT = os.environ.get('RABBITMQ_PORT', '5672')
 RABBITMQ_VHOST = os.environ.get('RABBITMQ_VHOST', '/')

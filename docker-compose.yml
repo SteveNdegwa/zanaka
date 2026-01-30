@@ -10,6 +10,7 @@ x-rabbitmq-env: &rabbitmq-env
   RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
 
 x-django-env: &django-env
+  DJANGO_DEBUG: true
   DJANGO_SETTINGS_MODULE: zanaka.settings
   DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
   CELERY_BROKER_URL: amqp://zanaka:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672//
@@ -17,7 +18,7 @@ x-django-env: &django-env
 x-django-full-env: &django-full-env
   <<: [*django-env, *postgres-env]
 
-x-app-image: &app-image ${DOCKER_IMAGE_TAG}
+x-app-image: &app-image ${IMAGE_TAG}
 
 networks:
   backend:
@@ -71,12 +72,6 @@ services:
   zanaka:
     image: *app-image
     container_name: zanaka_app
-    command: >
-      sh -c "
-      python manage.py migrate &&
-      python manage.py collectstatic --noinput &&
-      gunicorn zanaka.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120
-      "
     environment:
       <<: *django-full-env
     depends_on:
@@ -84,8 +79,6 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-    volumes:
-      - ./static:/usr/src/app/staticfiles
     ports:
       - "8000:8000"
     networks:
