@@ -75,7 +75,7 @@ services:
       sh -c "
       python manage.py migrate &&
       python manage.py collectstatic --noinput &&
-      gunicorn zanaka.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 120
+      gunicorn zanaka.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120
       "
     environment:
       <<: *django-full-env
