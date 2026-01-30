@@ -21,3 +21,4 @@ urlpatterns = [
     path('cia/', admin.site.urls),
     path('api/v1/', include('api.urls')),
 ]
+
