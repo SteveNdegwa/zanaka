@@ -98,8 +98,8 @@ services:
     environment:
       <<: *django-full-env
     depends_on:
-      - zanaka
-      - rabbitmq
+      zanaka:
+        condition: service_healthy
     networks:
       - backend
     restart: always
@@ -111,8 +111,8 @@ services:
     environment:
       <<: *django-full-env
     depends_on:
-      - zanaka
-      - rabbitmq
+      zanaka:
+        condition: service_healthy
     networks:
       - backend
     restart: always
@@ -128,7 +128,8 @@ services:
     networks:
       - backend
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
 
   portainer:
     image: portainer/portainer-ce:latest
