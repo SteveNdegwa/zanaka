@@ -90,6 +90,7 @@ jobs:
         id: prepare_secrets
         run: |
           declare -A secrets=(
+            [DOCKER_IMAGE_TAG]="${{ steps.tag.outputs.image_tag }}"
             [POSTGRES_PASSWORD]="${{ secrets.POSTGRES_PASSWORD }}"
             [DJANGO_SECRET_KEY]="${{ secrets.DJANGO_SECRET_KEY }}"
             [RABBITMQ_DEFAULT_PASS]="${{ secrets.RABBITMQ_DEFAULT_PASS }}"
