@@ -84,12 +84,6 @@ services:
     networks:
       - backend
     restart: always
-    healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8000/api/v1/health/ || exit 1" ]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 60s
 
   celery_worker:
     image: *app-image
@@ -98,8 +92,8 @@ services:
     environment:
       <<: *django-full-env
     depends_on:
-      zanaka:
-        condition: service_healthy
+      - zanaka
+      - rabbitmq
     networks:
       - backend
     restart: always
@@ -111,8 +105,8 @@ services:
     environment:
       <<: *django-full-env
     depends_on:
-      zanaka:
-        condition: service_healthy
+      - zanaka
+      - rabbitmq
     networks:
       - backend
     restart: always
@@ -128,8 +122,7 @@ services:
     networks:
       - backend
     depends_on:
-      rabbitmq:
-        condition: service_healthy
+      - rabbitmq
 
   portainer:
     image: portainer/portainer-ce:latest
