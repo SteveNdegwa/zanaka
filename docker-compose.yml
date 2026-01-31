@@ -86,10 +86,10 @@ services:
     restart: always
     healthcheck:
       test: [ "CMD-SHELL", "curl -f http://localhost:8000/api/v1/health/ || exit 1" ]
-      interval: 30s
+      interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 30s
+      retries: 10
+      start_period: 60s
 
   celery_worker:
     image: *app-image
