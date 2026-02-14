@@ -28,8 +28,22 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() == "true"
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
-    "mchangohub.com"
+    "api.stmarysacademy.sc.ke",
+    "stage-api.stmarysacademy.sc.ke"
 ]
+
+CORS_ALLOWED_ORIGINS = [
+    "https://app.stmarysacademy.sc.ke",
+    "https://stage-app.stmarysacademy.sc.ke",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://app.stmarysacademy.sc.ke",
+    "https://stage-app.stmarysacademy.sc.ke",
+]
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 
 # Application definition
 

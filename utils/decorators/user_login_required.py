@@ -13,10 +13,10 @@ def user_login_required(required_permission=None):
             if not user or not user.is_authenticated:
                 return ResponseProvider.unauthorized()
 
-            # if required_permission:
-            #     perms = [required_permission] if isinstance(required_permission, str) else required_permission
-            #     if not any(user.has_permission(perm) for perm in perms):
-            #         raise PermissionDenied()
+            if required_permission:
+                perms = [required_permission] if isinstance(required_permission, str) else required_permission
+                if not any(user.has_permission(perm) for perm in perms):
+                    raise PermissionDenied()
 
             return func(request, *args, **kwargs)
 
