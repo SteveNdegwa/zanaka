@@ -10,7 +10,7 @@ x-rabbitmq-env: &rabbitmq-env
   RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
 
 x-django-env: &django-env
-  DJANGO_DEBUG: true
+  DJANGO_DEBUG: false
   DJANGO_SETTINGS_MODULE: zanaka.settings
   DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
   CELERY_BROKER_URL: amqp://zanaka:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672//
