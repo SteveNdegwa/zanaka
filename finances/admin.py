@@ -23,6 +23,7 @@ from .models import (
 )
 
 
+
 class InvoiceItemInline(admin.TabularInline):
     model = InvoiceItem
     extra = 1

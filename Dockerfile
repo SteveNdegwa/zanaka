@@ -18,7 +18,7 @@ RUN python manage.py collectstatic --noinput --clear
 
 FROM python:3.11-slim
 
-WORKDIR /usr/src/app
+WORKDIR /usr/src/,//,//appZ
 
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
